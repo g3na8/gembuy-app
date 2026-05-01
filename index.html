@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GemBuy">
+  <meta name="theme-color" content="#0f0f0f">
+  <title>GemBuy</title>
+
+  <!-- PWA Manifest inline -->
+  <link rel="manifest" href="data:application/json,{%22name%22:%22GemBuy%22,%22short_name%22:%22GemBuy%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%230f0f0f%22,%22theme_color%22:%22%230f0f0f%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A//www.w3.org/2000/svg'%20viewBox%3D'0%200%20512%20512'%3E%3Crect%20width%3D'512'%20height%3D'512'%20rx%3D'100'%20fill%3D'%230f0f0f'/%3E%3Ctext%20x%3D'50%25'%20y%3D'55%25'%20font-size%3D'280'%20text-anchor%3D'middle'%20dominant-baseline%3D'middle'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22512x512%22,%22type%22:%22image/svg+xml%22}]}">
+
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg: #0f0f0f;
+      --card: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #00d4ff;
+      --success: #00c851;
+      --danger: #ff4444;
+      --warning: #ffbb33;
+      --text: #ffffff;
+      --text-secondary: #cccccc;
+      --tab-bar-height: 80px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Layout ─── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      height: 100dvh;
+    }
+
+    #header {
+      padding: 16px 20px 8px;
+      padding-top: calc(16px + env(safe-area-inset-top, 0px));
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      background: var(--bg);
+    }
+
+    #header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    #header h1 span {
+      color: var(--accent);
+    }
+
+    #header-badge {
+      background: var(--accent);
+      color: #000;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 10px;
+      display: none;
+    }
+
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+
+    /* ─── Tab Pages ─── */
+    .tab-page {
+      display: none;
+      padding: 16px;
+      padding-bottom: calc(16px + var(--tab-bar-height) + var(--safe-bottom));
+      min-height: 100%;
+    }
+
+    .tab-page.active {
+      display: block;
+    }
+
+    /* ─── Bottom Tab Bar ─── */
+    #tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(var(--tab-bar-height) + var(--safe-bottom));
+      padding-bottom: var(--safe-bottom);
+      background: rgba(15, 15, 15, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-around;
+      padding-top: 8px;
+      z-index: 100;
+    }
+
+    .tab-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 8px;
+      transition: color 0.2s;
+      min-height: 44px;
+      position: relative;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+    }
+
+    .tab-btn .tab-icon {
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .tab-btn .tab-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .tab-btn .tab-badge {
+      position: absolute;
+      top: 0;
+      right: calc(50% - 22px);
+      background: var(--danger);
+      color: #fff;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      min-width: 18px;
+      text-align: center;
+      display: none;
+    }
+
+    .tab-btn .tab-badge.visible {
+      display: block;
+    }
+
+    /* ─── Ticket Cards ─── */
+    .ticket-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      transition: transform 0.3s ease, opacity 0.3s ease, max-height 0.3s ease;
+    }
+
+    .ticket-card.removing {
+      transform: translateX(100%);
+      opacity: 0;
+      max-height: 0;
+      margin-bottom: 0;
+    }
+
+    .ticket-header {
+      padding: 14px 16px 10px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .ticket-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .platform-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .platform-badge.amazon {
+      background: rgba(255, 153, 0, 0.15);
+      color: #ff9900;
+      border: 1px solid rgba(255, 153, 0, 0.3);
+    }
+
+    .platform-badge.kaufland {
+      background: rgba(220, 0, 50, 0.15);
+      color: #ff3355;
+      border: 1px solid rgba(220, 0, 50, 0.3);
+    }
+
+    .category-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.07);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .ticket-summary {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    /* ─── Confidence Bar ─── */
+    .confidence-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .confidence-bar-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .confidence-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    .confidence-label {
+      font-size: 12px;
+      font-weight: 700;
+      min-width: 36px;
+      text-align: right;
+    }
+
+    .conf-green { background: var(--success); color: var(--success); }
+    .conf-yellow { background: var(--warning); color: var(--warning); }
+    .conf-red { background: var(--danger); color: var(--danger); }
+
+    /* ─── Expandable Answer ─── */
+    .ticket-expand-icon {
+      margin-left: auto;
+      font-size: 12px;
+      color: #555;
+      transition: transform 0.25s;
+      flex-shrink: 0;
+    }
+
+    .ticket-card.expanded .ticket-expand-icon {
+      transform: rotate(180deg);
+    }
+
+    .ticket-body {
+      display: none;
+      padding: 0 16px 14px;
+    }
+
+    .ticket-card.expanded .ticket-body {
+      display: block;
+    }
+
+    .antwort-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+    }
+
+    .antwort-text {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .ticket-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .btn {
+      flex: 1;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      min-height: 48px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.2px;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+      opacity: 0.85;
+    }
+
+    .btn-send {
+      background: var(--success);
+      color: #fff;
+    }
+
+    .btn-reject {
+      background: rgba(255, 68, 68, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(255, 68, 68, 0.3);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    /* ─── Loading Spinner ─── */
+    #tickets-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      gap: 16px;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ─── Empty State ─── */
+    #tickets-empty {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      gap: 12px;
+      text-align: center;
+    }
+
+    #tickets-empty .empty-icon {
+      font-size: 48px;
+    }
+
+    #tickets-empty p {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    #tickets-empty span {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* ─── Dashboard Cards ─── */
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .dash-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dash-card .dash-icon {
+      font-size: 24px;
+    }
+
+    .dash-card .dash-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .dash-card .dash-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .dash-note {
+      text-align: center;
+      color: #555;
+      font-size: 13px;
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+    }
+
+    /* ─── Team Tab ─── */
+    .team-section { margin-bottom: 20px; }
+
+    .team-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+      padding: 0 2px;
+    }
+
+    .shift-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .shift-row {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+
+    .shift-row:last-child { border-bottom: none; }
+
+    .shift-name { font-size: 15px; font-weight: 600; flex: 1; }
+    .shift-time { font-size: 13px; color: var(--accent); font-weight: 600; }
+
+    .hours-pool {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .hours-pool-total {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pool-hours { font-size: 32px; font-weight: 700; color: var(--accent); }
+    .pool-euro  { font-size: 20px; font-weight: 700; color: var(--success); }
+    .pool-label { font-size: 12px; color: var(--text-secondary); margin-left: auto; }
+
+    .hours-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .hours-row:last-child { border-bottom: none; }
+
+    .hours-person { font-size: 14px; font-weight: 600; flex: 1; }
+    .hours-amount { font-size: 13px; color: var(--text-secondary); }
+    .hours-euro   { font-size: 13px; color: var(--success); font-weight: 600; min-width: 58px; text-align: right; }
+
+    .todo-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+
+    .todo-row { display: flex; align-items: flex-start; padding: 12px 16px; gap: 12px; }
+
+    .todo-check {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 2px solid #444;
+      background: none;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 1px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      transition: border-color 0.2s, background 0.2s;
+      color: transparent;
+    }
+
+    .todo-check:active { border-color: var(--success); background: rgba(0,200,81,0.1); }
+
+    .todo-content { flex: 1; min-width: 0; }
+    .todo-title   { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+
+    .todo-meta    { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .todo-assignee { font-size: 11px; color: var(--text-secondary); }
+
+    .todo-prio {
+      font-size: 10px; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px;
+    }
+
+    .todo-prio.hoch    { background: rgba(255,68,68,0.15);  color: var(--danger);  }
+    .todo-prio.mittel  { background: rgba(255,187,51,0.15); color: var(--warning); }
+    .todo-prio.niedrig { background: rgba(100,100,100,0.2); color: #888; }
+
+    .quick-action-row { display: flex; gap: 10px; margin-bottom: 16px; }
+
+    .btn-quick {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      min-height: 44px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-quick:active { background: rgba(0,212,255,0.08); }
+
+    /* ─── Modal Sheet ─── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 500;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal-sheet {
+      background: #1a1a1a;
+      border-radius: 20px 20px 0 0;
+      width: 100%; max-width: 600px;
+      padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid var(--border);
+    }
+
+    .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 20px; text-align: center; }
+
+    .modal-field { margin-bottom: 14px; }
+
+    .modal-field label {
+      display: block;
+      font-size: 12px; font-weight: 600;
+      color: #777;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .modal-field input,
+    .modal-field select,
+    .modal-field textarea {
+      width: 100%;
+      background: #111;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .modal-field textarea { min-height: 72px; resize: vertical; }
+
+    .modal-field input:focus,
+    .modal-field select:focus,
+    .modal-field textarea:focus { border-color: var(--accent); }
+
+    .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+
+    .btn-cancel {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 15px; font-weight: 600;
+      min-height: 48px; cursor: pointer;
+    }
+
+    .btn-confirm {
+      flex: 2;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px; font-weight: 700;
+      min-height: 48px; cursor: pointer;
+    }
+
+    .btn-confirm:disabled, .btn-cancel:disabled { opacity: 0.5; cursor: default; }
+
+    #team-loading {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 40px 20px; gap: 12px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state-small {
+      padding: 20px; text-align: center;
+      color: var(--text-secondary); font-size: 13px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .btn-bezahlt {
+      background: linear-gradient(135deg, #00c851, #00a040);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px; font-weight: 700;
+      padding: 5px 12px;
+      cursor: pointer;
+      min-height: 30px;
+    }
+
+    .btn-bezahlt:disabled { opacity: 0.5; cursor: default; }
+
+    /* ─── Money Rain ─── */
+    #money-rain {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      overflow: hidden;
+    }
+
+    .money-drop {
+      position: absolute;
+      top: -60px;
+      font-size: 28px;
+      animation: moneyFall var(--dur, 1.4s) ease-in forwards;
+      user-select: none;
+    }
+
+    @keyframes moneyFall {
+      0%   { transform: translateY(0) rotate(0deg);   opacity: 1; }
+      80%  { opacity: 1; }
+      100% { transform: translateY(110vh) rotate(var(--rot,360deg)); opacity: 0; }
+    }
+
+    /* ─── Toast ─── */
+    #toast-container {
+      position: fixed;
+      top: calc(16px + env(safe-area-inset-top, 0px));
+      left: 16px;
+      right: 16px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: #222;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+    }
+
+    .toast.success { border-color: var(--success); }
+    .toast.error { border-color: var(--danger); }
+    .toast.info { border-color: var(--accent); }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-12px); }
+    }
+
+    /* ─── Section Header ─── */
+    .section-header {
+      font-size: 12px;
+      font-weight: 700;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      padding: 0 2px;
+    }
+
+    /* ─── Refresh Button ─── */
+    .refresh-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--accent);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 36px;
+    }
+
+    .refresh-btn:active {
+      opacity: 0.7;
+    }
+
+    .top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Header -->
+  <div id="header">
+    <h1>Gem<span>Buy</span></h1>
+    <div id="header-badge">live</div>
+  </div>
+
+  <!-- Content -->
+  <div id="content">
+
+    <!-- ── Tab 1: Tickets ── -->
+    <div id="tab-tickets" class="tab-page active">
+      <div class="top-row">
+        <div class="section-header" style="margin-bottom:0">Offene Tickets</div>
+        <button class="refresh-btn" onclick="loadTickets()">
+          <span>↻</span> Aktualisieren
+        </button>
+      </div>
+
+      <div id="tickets-loading" style="display:none">
+        <div class="spinner"></div>
+        <span>Lade Tickets...</span>
+      </div>
+
+      <div id="tickets-empty">
+        <div class="empty-icon">🎉</div>
+        <p>Keine offenen Tickets</p>
+        <span>Alle Tickets wurden bearbeitet</span>
+      </div>
+
+      <div id="tickets-list"></div>
+    </div>
+
+    <!-- ── Tab 2: Dashboard ── -->
+    <div id="tab-dashboard" class="tab-page">
+      <div class="top-row">
+        <div class="section-header" style="margin-bottom:0">Übersicht</div>
+        <button class="refresh-btn" onclick="loadDashboard()">
+          <span>↻</span> Aktualisieren
+        </button>
+      </div>
+      <div class="dash-grid">
+        <div class="dash-card">
+          <div class="dash-icon">🛒</div>
+          <div class="dash-value" id="dash-kaufland">—</div>
+          <div class="dash-label">Kaufland offen</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-icon">📦</div>
+          <div class="dash-value" id="dash-amazon">—</div>
+          <div class="dash-label">Amazon offen</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-icon">🎫</div>
+          <div class="dash-value" id="dash-open-tickets">—</div>
+          <div class="dash-label">Offene Tickets</div>
+        </div>
+        <div class="dash-card" id="abholung-card">
+          <div class="dash-icon">🚚</div>
+          <div class="dash-value" id="abholung-timer">—</div>
+          <div class="dash-label" id="abholung-label">Abholung 13–14 Uhr</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab 3: Team ── -->
+    <div id="tab-team" class="tab-page">
+      <div class="top-row">
+        <div class="section-header" style="margin-bottom:0">Team</div>
+        <button class="refresh-btn" onclick="loadTeamData()">
+          <span>↻</span> Aktualisieren
+        </button>
+      </div>
+
+      <div id="team-loading" style="display:none">
+        <div class="spinner"></div>
+        <span>Lade Team-Daten...</span>
+      </div>
+
+      <!-- Stunden-Reminder Banner -->
+      <div id="stunden-reminder" style="display:none;background:rgba(255,187,51,0.1);border:1px solid rgba(255,187,51,0.3);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:none;align-items:center;gap:10px">
+        <span style="font-size:20px">⏰</span>
+        <span style="font-size:13px;flex:1;color:#ffbb33">Stunden noch nicht eingetragen!</span>
+        <button onclick="openHoursModal();dismissReminder()" style="background:rgba(255,187,51,0.2);border:1px solid rgba(255,187,51,0.4);color:#ffbb33;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">Jetzt</button>
+        <button onclick="dismissReminder()" style="background:none;border:none;color:#666;font-size:18px;cursor:pointer;padding:0 4px">×</button>
+      </div>
+
+      <div id="team-content">
+        <!-- Quick Actions -->
+        <div class="quick-action-row">
+          <button class="btn-quick" onclick="openHoursModal()">⏱ Stunden</button>
+          <button class="btn-quick" onclick="openTodoModal()">+ Todo</button>
+        </div>
+
+        <!-- Heute im Dienst -->
+        <div class="team-section">
+          <div class="team-section-title">Heute im Dienst</div>
+          <div id="team-schicht-heute">
+            <div class="empty-state-small">Wird geladen...</div>
+          </div>
+        </div>
+
+        <!-- Morgen -->
+        <div class="team-section">
+          <div class="team-section-title">Morgen</div>
+          <div id="team-schicht-morgen">
+            <div class="empty-state-small">Wird geladen...</div>
+          </div>
+        </div>
+
+        <!-- Offene Stunden (unvergütet) Pool -->
+        <div class="team-section">
+          <div class="team-section-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Offene Stunden</span>
+            <button class="btn-bezahlt" id="btn-bezahlt" onclick="payTeam()">💸 Bezahlt</button>
+          </div>
+          <div class="hours-pool">
+            <div class="hours-pool-total">
+              <div class="pool-hours" id="pool-hours-total">0h</div>
+              <div class="pool-euro" id="pool-euro-total">0,00 €</div>
+              <div class="pool-label">offen</div>
+            </div>
+            <div id="team-stunden">
+              <div class="hours-row">
+                <div class="hours-person" style="color:#555">Keine offenen Stunden</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Todos -->
+        <div class="team-section">
+          <div class="team-section-title">Offene Todos</div>
+          <div id="team-todos">
+            <div class="empty-state-small">Wird geladen...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- Bottom Tab Bar -->
+  <div id="tab-bar">
+    <button class="tab-btn active" data-tab="tickets" onclick="switchTab('tickets')">
+      <span class="tab-icon">🎫</span>
+      <span class="tab-label">Tickets</span>
+      <span class="tab-badge" id="badge-tickets"></span>
+    </button>
+    <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">
+      <span class="tab-icon">📊</span>
+      <span class="tab-label">Dashboard</span>
+    </button>
+    <button class="tab-btn" data-tab="team" onclick="switchTab('team')">
+      <span class="tab-icon">👥</span>
+      <span class="tab-label">Team</span>
+    </button>
+  </div>
+
+</div><!-- /app -->
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- Modal: Stunden eintragen -->
+<div class="modal-overlay" id="modal-hours" onclick="if(event.target===this)closeModal('hours')">
+  <div class="modal-sheet">
+    <div class="modal-title">⏱ Stunden eintragen</div>
+    <div class="modal-field">
+      <label>Name</label>
+      <input type="text" id="hours-name" placeholder="z.B. Heinrich" autocomplete="off">
+    </div>
+    <div class="modal-field">
+      <label>Stunden</label>
+      <input type="number" id="hours-amount" placeholder="z.B. 3.5" step="0.5" min="0.5" max="12">
+    </div>
+    <div class="modal-field">
+      <label>Notiz (optional)</label>
+      <input type="text" id="hours-notiz" placeholder="z.B. Tickets bearbeitet" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('hours')">Abbrechen</button>
+      <button class="btn-confirm" id="btn-hours-confirm" onclick="submitHours()">Eintragen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Todo hinzufügen -->
+<div class="modal-overlay" id="modal-todo" onclick="if(event.target===this)closeModal('todo')">
+  <div class="modal-sheet">
+    <div class="modal-title">+ Neues Todo</div>
+    <div class="modal-field">
+      <label>Titel</label>
+      <input type="text" id="todo-titel" placeholder="Was muss gemacht werden?" autocomplete="off">
+    </div>
+    <div class="modal-field">
+      <label>Beschreibung (optional)</label>
+      <textarea id="todo-beschreibung" placeholder="Details..."></textarea>
+    </div>
+    <div class="modal-field">
+      <label>Zuständig</label>
+      <select id="todo-zustaendig">
+        <option value="David">David</option>
+        <option value="Kubi">Kubi</option>
+        <option value="David & Kubi">David & Kubi</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Priorität</label>
+      <select id="todo-prio">
+        <option value="Medium">Mittel</option>
+        <option value="High">Hoch</option>
+        <option value="Urgent">Urgent</option>
+        <option value="Low">Niedrig</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('todo')">Abbrechen</button>
+      <button class="btn-confirm" id="btn-todo-confirm" onclick="submitTodo()">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ═══════════════════════════════════════════
+     STATE
+  ═══════════════════════════════════════════ */
+  let tickets = [];
+  let currentTab = 'tickets';
+  let teamData = null;
+
+  /* ═══════════════════════════════════════════
+     MOCK / SAMPLE DATA
+  ═══════════════════════════════════════════ */
+  const WEBHOOK = {
+    kaufland: 'https://gena.app.n8n.cloud/webhook/kaufland-send',
+    amazon:   'https://gena.app.n8n.cloud/webhook/amazon-send',
+    fetch:    'https://gena.app.n8n.cloud/webhook/pending-tickets'
+  };
+
+  const TEAM_WEBHOOK = {
+    data:       'https://gena.app.n8n.cloud/webhook/team-data',
+    hours:      'https://gena.app.n8n.cloud/webhook/team-hours-log',
+    todoAdd:    'https://gena.app.n8n.cloud/webhook/team-todo-add',
+    todoComplete: 'https://gena.app.n8n.cloud/webhook/todo-complete',
+    pay:        'https://gena.app.n8n.cloud/webhook/team-pay'
+  };
+
+  const DASH_WEBHOOK = 'https://gena.app.n8n.cloud/webhook/dashboard-stats';
+
+  /* ═══════════════════════════════════════════
+     TABS
+  ═══════════════════════════════════════════ */
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+    document.getElementById('content').scrollTop = 0;
+    if (tab === 'team' && !teamData) loadTeamData();
+    if (tab === 'dashboard') loadDashboard();
+  }
+
+  /* ═══════════════════════════════════════════
+     TOAST
+  ═══════════════════════════════════════════ */
+  function showToast(msg, type = 'info', duration = 3000) {
+    const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.innerHTML = '<span>' + icons[type] + '</span><span>' + msg + '</span>';
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), duration + 100);
+  }
+
+  /* ═══════════════════════════════════════════
+     CONFIDENCE HELPERS
+  ═══════════════════════════════════════════ */
+  function confClass(c) {
+    if (c >= 0.90) return 'conf-green';
+    if (c >= 0.70) return 'conf-yellow';
+    return 'conf-red';
+  }
+
+  function confColor(c) {
+    if (c >= 0.90) return 'var(--success)';
+    if (c >= 0.70) return 'var(--warning)';
+    return 'var(--danger)';
+  }
+
+  /* ═══════════════════════════════════════════
+     RENDER TICKETS
+  ═══════════════════════════════════════════ */
+  function renderTickets() {
+    const list = document.getElementById('tickets-list');
+    const empty = document.getElementById('tickets-empty');
+
+    list.innerHTML = '';
+
+    if (tickets.length === 0) {
+      empty.style.display = 'flex';
+      updateBadge(0);
+      updateDashTickets(0);
+      return;
+    }
+
+    empty.style.display = 'none';
+    updateBadge(tickets.length);
+    updateDashTickets(tickets.length);
+
+    tickets.forEach((t, idx) => {
+      const pct = Math.round(t.confidence * 100);
+      const cc = confClass(t.confidence);
+      const col = confColor(t.confidence);
+      const pBadge = t.platform === 'amazon' ? 'amazon' : 'kaufland';
+      const pLabel = t.platform === 'amazon' ? '🇦 Amazon' : '🛒 Kaufland';
+
+      const card = document.createElement('div');
+      card.className = 'ticket-card';
+      card.id = 'card-' + idx;
+
+      card.innerHTML = `
+        <div class="ticket-header" onclick="toggleCard(${idx})">
+          <div class="ticket-meta">
+            <span class="platform-badge ${pBadge}">${pLabel}</span>
+            <span class="category-badge">${escHtml(t.category)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="ticket-summary" style="flex:1">${escHtml(t.summary)}</div>
+            <div class="ticket-expand-icon">▼</div>
+          </div>
+          <div class="confidence-row" style="margin-top:10px">
+            <div class="confidence-bar-track">
+              <div class="confidence-bar-fill ${cc}" style="width:0%;background:${col}" data-pct="${pct}"></div>
+            </div>
+            <div class="confidence-label ${cc}">${pct}%</div>
+          </div>
+        </div>
+        <div class="ticket-body">
+          <div class="antwort-label">Vorgeschlagene Antwort</div>
+          <div class="antwort-text">${escHtml(t.antwort)}</div>
+          <div class="ticket-actions">
+            <button class="btn btn-send" onclick="sendTicket(${idx}, event)">✅ Senden</button>
+            <button class="btn btn-reject" onclick="rejectTicket(${idx}, event)">❌ Ablehnen</button>
+          </div>
+        </div>
+      `;
+
+      list.appendChild(card);
+
+      // Animate confidence bar in after paint
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const fill = card.querySelector('.confidence-bar-fill');
+          if (fill) fill.style.width = fill.dataset.pct + '%';
+        }, 80 + idx * 60);
+      });
+    });
+  }
+
+  function toggleCard(idx) {
+    const card = document.getElementById('card-' + idx);
+    card.classList.toggle('expanded');
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* ═══════════════════════════════════════════
+     BADGE / DASHBOARD COUNTERS
+  ═══════════════════════════════════════════ */
+  function updateBadge(n) {
+    const badge = document.getElementById('badge-tickets');
+    if (n > 0) {
+      badge.textContent = n;
+      badge.classList.add('visible');
+    } else {
+      badge.classList.remove('visible');
+    }
+  }
+
+  function updateDashTickets(n) {
+    const el = document.getElementById('dash-open-tickets');
+    if (el) el.textContent = n > 0 ? n : '0';
+  }
+
+  /* ═══════════════════════════════════════════
+     SEND TICKET
+  ═══════════════════════════════════════════ */
+  async function sendTicket(idx, evt) {
+    evt.stopPropagation();
+    const t = tickets[idx];
+    const card = document.getElementById('card-' + idx);
+    const sendBtn = card.querySelectorAll('.btn')[0];
+    const rejectBtn = card.querySelectorAll('.btn')[1];
+
+    sendBtn.disabled = true;
+    rejectBtn.disabled = true;
+    sendBtn.textContent = '⏳ Sende...';
+
+    let url, body;
+    if (t.platform === 'kaufland') {
+      url = WEBHOOK.kaufland;
+      body = { ticket_id: t.ticket_id, antwort: t.antwort };
+    } else {
+      url = WEBHOOK.amazon;
+      body = { message_id: t.message_id, antwort: t.antwort, thread_id: t.thread_id };
+    }
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      showToast('Antwort gesendet!', 'success');
+      removeCard(idx);
+
+    } catch (err) {
+      showToast('Fehler beim Senden: ' + err.message, 'error');
+      sendBtn.disabled = false;
+      rejectBtn.disabled = false;
+      sendBtn.textContent = '✅ Senden';
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     REJECT TICKET
+  ═══════════════════════════════════════════ */
+  function rejectTicket(idx, evt) {
+    evt.stopPropagation();
+    showToast('Ticket abgelehnt', 'info');
+    removeCard(idx);
+  }
+
+  function removeCard(idx) {
+    const card = document.getElementById('card-' + idx);
+    if (!card) return;
+
+    card.classList.add('removing');
+    setTimeout(() => {
+      tickets.splice(idx, 1);
+      renderTickets();
+    }, 320);
+  }
+
+  /* ═══════════════════════════════════════════
+     LOAD TICKETS (API + fallback to mock)
+  ═══════════════════════════════════════════ */
+  async function loadTickets() {
+    const loading = document.getElementById('tickets-loading');
+    loading.style.display = 'flex';
+    tickets = [];
+    renderTickets();
+
+    try {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(WEBHOOK.fetch, { method: 'GET', signal: ctrl.signal });
+      clearTimeout(timeout);
+
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      const data = await res.json();
+      const incoming = Array.isArray(data) ? data : (Array.isArray(data.tickets) ? data.tickets : []);
+      tickets = incoming;
+      renderTickets();
+    } catch (err) {
+      console.warn('Tickets nicht geladen:', err.message);
+      showToast('Tickets konnten nicht geladen werden', 'error');
+    } finally {
+      loading.style.display = 'none';
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     DASHBOARD
+  ═══════════════════════════════════════════ */
+  async function loadDashboard() {
+    try {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 7000);
+      const res = await fetch(DASH_WEBHOOK, { signal: ctrl.signal });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const klEl  = document.getElementById('dash-kaufland');
+      const amzEl = document.getElementById('dash-amazon');
+      if (klEl)  klEl.textContent  = data.kaufland  ?? '—';
+      if (amzEl) amzEl.textContent = data.amazon    ?? '—';
+    } catch(e) {
+      console.warn('dashboard-stats:', e.message);
+    }
+  }
+
+  /* ─── Abholungs-Timer ─── */
+  let _timerInterval = null;
+
+  function startAbholungTimer() {
+    updateAbholungTimer();
+    _timerInterval = setInterval(updateAbholungTimer, 1000);
+  }
+
+  function updateAbholungTimer() {
+    const now   = new Date();
+    const day   = now.getDay(); // 0=So 1=Mo..5=Fr 6=Sa
+    const h     = now.getHours();
+    const m     = now.getMinutes();
+    const s     = now.getSeconds();
+
+    const timerEl = document.getElementById('abholung-timer');
+    const labelEl = document.getElementById('abholung-label');
+    const card    = document.getElementById('abholung-card');
+    if (!timerEl) return;
+
+    const isWeekday = day >= 1 && day <= 5;
+
+    if (!isWeekday) {
+      timerEl.textContent      = 'WE';
+      timerEl.style.color      = '#555';
+      labelEl.textContent      = 'Abholung erst Mo';
+      card.style.borderColor   = '';
+      return;
+    }
+
+    const secNow    = h * 3600 + m * 60 + s;
+    const sec13     = 13 * 3600;
+    const sec14     = 14 * 3600;
+
+    if (secNow < sec13) {
+      const left = sec13 - secNow;
+      const lh   = Math.floor(left / 3600);
+      const lm   = Math.floor((left % 3600) / 60);
+      const ls   = left % 60;
+      timerEl.textContent    = lh > 0
+        ? `${lh}h ${String(lm).padStart(2,'0')}m`
+        : `${lm}:${String(ls).padStart(2,'0')}`;
+      timerEl.style.color    = left < 1800 ? 'var(--warning)' : 'var(--accent)';
+      labelEl.textContent    = 'Abholung in';
+      card.style.borderColor = left < 1800 ? 'rgba(255,187,51,0.4)' : '';
+    } else if (secNow <= sec14) {
+      timerEl.textContent    = 'Jetzt!';
+      timerEl.style.color    = 'var(--success)';
+      labelEl.textContent    = 'Abholung läuft';
+      card.style.borderColor = 'rgba(0,200,81,0.4)';
+    } else {
+      timerEl.textContent    = 'Done';
+      timerEl.style.color    = '#555';
+      labelEl.textContent    = 'Abholung war heute';
+      card.style.borderColor = '';
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     TEAM DATA
+  ═══════════════════════════════════════════ */
+  async function loadTeamData() {
+    const loading = document.getElementById('team-loading');
+    loading.style.display = 'flex';
+    try {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(TEAM_WEBHOOK.data, { signal: ctrl.signal });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      teamData = await res.json();
+      renderTeamData(teamData);
+    } catch (err) {
+      showToast('Team-Daten nicht geladen', 'error');
+      console.warn('team-data error:', err.message);
+      renderTeamData({ schicht_heute: [], schicht_morgen: [], stunden_offen: [], stunden_gesamt: {stunden:0,betrag:0}, todos_offen: [] });
+    } finally {
+      loading.style.display = 'none';
+    }
+  }
+
+  function renderSchicht(elId, schicht) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (!schicht || schicht.length === 0) {
+      el.innerHTML = '<div class="empty-state-small">Niemand eingeteilt</div>';
+    } else {
+      el.innerHTML = '<div class="shift-card">' +
+        schicht.map(s => `<div class="shift-row">
+          <span class="shift-name">${escHtml(s.name)}</span>
+          <span class="shift-time">${s.von && s.bis ? escHtml(s.von)+' – '+escHtml(s.bis) : escHtml(s.schicht||'')}</span>
+        </div>`).join('') + '</div>';
+    }
+  }
+
+  function renderTeamData(d) {
+    // Schichtplan heute + morgen
+    renderSchicht('team-schicht-heute', d.schicht_heute || []);
+    renderSchicht('team-schicht-morgen', d.schicht_morgen || []);
+
+    // Stunden pool (alle unbezahlten)
+    const gesamt = d.stunden_gesamt || {};
+    const totalH = parseFloat(gesamt.stunden) || 0;
+    const totalE = parseFloat(gesamt.betrag) || 0;
+
+    document.getElementById('pool-hours-total').textContent = totalH.toFixed(1).replace('.', ',') + 'h';
+    document.getElementById('pool-euro-total').textContent  = totalE.toFixed(2).replace('.', ',') + ' €';
+
+    const stundenEl = document.getElementById('team-stunden');
+    const offen = d.stunden_offen || [];
+    if (offen.length === 0) {
+      stundenEl.innerHTML = '<div class="hours-row"><div class="hours-person" style="color:#555">Keine offenen Stunden</div></div>';
+      document.getElementById('btn-bezahlt').disabled = true;
+    } else {
+      document.getElementById('btn-bezahlt').disabled = false;
+      stundenEl.innerHTML = offen.map(s =>
+        `<div class="hours-row">
+          <div class="hours-person">${escHtml(s.name)}</div>
+          <div class="hours-amount">${parseFloat(s.stunden).toFixed(1).replace('.', ',')}h</div>
+          <div class="hours-euro">${parseFloat(s.betrag).toFixed(2).replace('.', ',')} €</div>
+        </div>`
+      ).join('');
+    }
+
+    // Stunden-Reminder: zeigen wenn jemand heute Schicht hat aber keine Stunden eingetragen
+    const heuteNamen = new Set((d.schicht_heute||[]).map(s => s.name.toLowerCase()));
+    const offenNamen = new Set((offen||[]).map(s => s.name.toLowerCase()));
+    const h = new Date().getHours();
+    const hatSchichtOhneStunden = [...heuteNamen].some(n => !offenNamen.has(n));
+    const reminder = document.getElementById('stunden-reminder');
+    if (reminder && hatSchichtOhneStunden && h >= 12) {
+      reminder.style.display = 'flex';
+    }
+
+    // Todos — nur für Personen die heute Schicht haben (+ geteilte), kein Gena
+    const todosEl = document.getElementById('team-todos');
+    const allTodos = d.todos_offen || [];
+    const schichtNamen = (d.schicht_heute || []).map(s => s.name.toLowerCase());
+
+    const todos = allTodos.filter(t => {
+      const z = (t.zustaendig || '').toLowerCase();
+      if (!z) return true; // unzugewiesen → für alle sichtbar
+      if (z === 'gena') return false; // Gena-Todos ausblenden
+      // Zeigen wenn jemand von heute Schicht in zustaendig vorkommt
+      return schichtNamen.some(n => z.includes(n));
+    });
+
+    if (todos.length === 0) {
+      todosEl.innerHTML = '<div class="empty-state-small">Keine offenen Todos 🎉</div>';
+    } else {
+      todosEl.innerHTML = todos.map(t => {
+        const prioRaw = (t.prioritaet || '').toLowerCase();
+        const pc = (prioRaw === 'high' || prioRaw === 'hoch' || prioRaw === 'urgent') ? 'hoch'
+                 : (prioRaw === 'low'  || prioRaw === 'niedrig') ? 'niedrig' : 'mittel';
+        const pl = pc === 'hoch' ? (prioRaw === 'urgent' ? 'Urgent' : 'Hoch') : pc === 'niedrig' ? 'Niedrig' : 'Mittel';
+        const safeId = t.id.replace(/[^a-zA-Z0-9-]/g, '_');
+        return `<div class="todo-card" id="todo-${safeId}">
+          <div class="todo-row">
+            <button class="todo-check" onclick="completeTodo('${escHtml(t.id)}')">○</button>
+            <div class="todo-content">
+              <div class="todo-title">${escHtml(t.titel)}</div>
+              <div class="todo-meta">
+                ${t.zustaendig ? `<span class="todo-assignee">@ ${escHtml(t.zustaendig)}</span>` : ''}
+                <span class="todo-prio ${pc}">${pl}</span>
+                ${t.faellig ? `<span style="font-size:10px;color:#555">${escHtml(t.faellig)}</span>` : ''}
+              </div>
+              ${t.kommentar ? `<div style="font-size:12px;color:#666;margin-top:4px">${escHtml(t.kommentar)}</div>` : ''}
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  /* ─── Stunden Reminder ─── */
+  function dismissReminder() {
+    const r = document.getElementById('stunden-reminder');
+    if (r) r.style.display = 'none';
+  }
+
+  /* ─── Bezahlt / Money Rain ─── */
+  function moneyRain() {
+    const emojis = ['💸','💰','💵','🤑','💶','💷','🪙'];
+    const container = document.createElement('div');
+    container.id = 'money-rain';
+    document.body.appendChild(container);
+
+    for (let i = 0; i < 55; i++) {
+      setTimeout(() => {
+        const el = document.createElement('div');
+        el.className = 'money-drop';
+        el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        el.style.left = (Math.random() * 100) + 'vw';
+        el.style.fontSize = (18 + Math.random() * 22) + 'px';
+        el.style.setProperty('--dur', (0.9 + Math.random() * 1.2) + 's');
+        el.style.setProperty('--rot', (Math.random() > 0.5 ? '' : '-') + (180 + Math.floor(Math.random()*360)) + 'deg');
+        container.appendChild(el);
+      }, i * 55);
+    }
+
+    setTimeout(() => container.remove(), 5000);
+  }
+
+  async function payTeam() {
+    const btn = document.getElementById('btn-bezahlt');
+    btn.disabled = true;
+    btn.textContent = '⏳ ...';
+
+    try {
+      const res = await fetch(TEAM_WEBHOOK.pay, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'pay_all' })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      moneyRain();
+      showToast('Stunden als bezahlt markiert 💸', 'success');
+      teamData = null;
+      setTimeout(loadTeamData, 1200);
+    } catch(e) {
+      showToast('Fehler: ' + e.message, 'error');
+      btn.disabled = false;
+      btn.textContent = '💸 Bezahlt';
+    }
+  }
+
+  /* ─── Modals ─── */
+  function openHoursModal() {
+    document.getElementById('modal-hours').classList.add('open');
+    setTimeout(() => document.getElementById('hours-name').focus(), 100);
+  }
+
+  function openTodoModal() {
+    document.getElementById('modal-todo').classList.add('open');
+    setTimeout(() => document.getElementById('todo-titel').focus(), 100);
+  }
+
+  function closeModal(type) {
+    document.getElementById('modal-' + type).classList.remove('open');
+  }
+
+  async function submitHours() {
+    const name    = document.getElementById('hours-name').value.trim();
+    const stunden = parseFloat(document.getElementById('hours-amount').value);
+    const notiz   = document.getElementById('hours-notiz').value.trim();
+
+    if (!name)               { showToast('Name eingeben', 'error'); return; }
+    if (!stunden || stunden <= 0) { showToast('Stunden eingeben', 'error'); return; }
+
+    const btn = document.getElementById('btn-hours-confirm');
+    btn.disabled = true; btn.textContent = '⏳ ...';
+
+    try {
+      const res = await fetch(TEAM_WEBHOOK.hours, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, stunden, notiz })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      closeModal('hours');
+      document.getElementById('hours-name').value = '';
+      document.getElementById('hours-amount').value = '';
+      document.getElementById('hours-notiz').value = '';
+      showToast(stunden + 'h für ' + name + ' eingetragen ✓', 'success');
+      teamData = null;
+      setTimeout(loadTeamData, 600);
+    } catch(e) {
+      showToast('Fehler: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Eintragen';
+    }
+  }
+
+  async function submitTodo() {
+    const titel        = document.getElementById('todo-titel').value.trim();
+    const beschreibung = document.getElementById('todo-beschreibung').value.trim();
+    const zustaendig   = document.getElementById('todo-zustaendig').value;
+    const prioritaet   = document.getElementById('todo-prio').value;
+
+    if (!titel) { showToast('Titel eingeben', 'error'); return; }
+
+    const btn = document.getElementById('btn-todo-confirm');
+    btn.disabled = true; btn.textContent = '⏳ ...';
+
+    try {
+      const res = await fetch(TEAM_WEBHOOK.todoAdd, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titel, kommentar: beschreibung, zustaendig, prioritaet })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      closeModal('todo');
+      document.getElementById('todo-titel').value = '';
+      document.getElementById('todo-beschreibung').value = '';
+      document.getElementById('todo-zustaendig').value = 'David';
+      showToast('Todo hinzugefügt ✓', 'success');
+      teamData = null;
+      setTimeout(loadTeamData, 600);
+    } catch(e) {
+      showToast('Fehler: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Hinzufügen';
+    }
+  }
+
+  async function completeTodo(id) {
+    const safeId = id.replace(/[^a-zA-Z0-9-]/g, '_');
+    const el = document.getElementById('todo-' + safeId);
+    if (el) { el.style.opacity = '0.4'; el.style.transition = 'opacity 0.3s'; }
+    try {
+      const res = await fetch(TEAM_WEBHOOK.todoComplete, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      showToast('Todo erledigt ✓', 'success');
+      teamData = null;
+      setTimeout(loadTeamData, 600);
+    } catch(e) {
+      if (el) el.style.opacity = '1';
+      showToast('Fehler: ' + e.message, 'error');
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     SERVICE WORKER STUB
+  ═══════════════════════════════════════════ */
+  function registerSW() {
+    if (!('serviceWorker' in navigator)) return;
+
+    const swCode = `
+      self.addEventListener('install', () => self.skipWaiting());
+      self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+      // No caching yet — Phase 1 stub
+      self.addEventListener('fetch', e => {});
+    `;
+
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const swUrl = URL.createObjectURL(blob);
+
+    navigator.serviceWorker.register(swUrl, { scope: './' })
+      .then(() => {
+        console.info('GemBuy SW registered (stub).');
+        URL.revokeObjectURL(swUrl);
+      })
+      .catch(err => console.warn('SW registration failed:', err));
+  }
+
+  /* ═══════════════════════════════════════════
+     INIT
+  ═══════════════════════════════════════════ */
+  document.addEventListener('DOMContentLoaded', () => {
+    registerSW();
+    loadTickets();
+    loadDashboard();
+    startAbholungTimer();
+  });
+</script>
+</body>
+</html>
