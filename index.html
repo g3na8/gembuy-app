@@ -454,6 +454,52 @@
       padding-top: 20px;
     }
 
+    /* ─── Routing Widget ─── */
+    .routing-widget {
+      margin-top: 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .routing-widget-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px; font-weight: 700;
+    }
+    .routing-badge {
+      background: #f59e0b; color: #000;
+      font-size: 11px; font-weight: 700;
+      border-radius: 10px; padding: 1px 7px;
+    }
+    .routing-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .routing-item:last-child { border-bottom: none; }
+    .routing-item-title {
+      font-size: 13px; font-weight: 600;
+      color: var(--text); margin-bottom: 4px;
+    }
+    .routing-item-meta {
+      font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;
+    }
+    .routing-btns {
+      display: flex; gap: 8px;
+    }
+    .routing-btns button {
+      flex: 1; padding: 8px 0; border: none; border-radius: 8px;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .routing-btn-fba  { background: #3b82f6; color: #fff; }
+    .routing-btn-fbm  { background: #10b981; color: #fff; }
+    .routing-btn-mix  { background: #f59e0b; color: #000; }
+    .routing-empty {
+      padding: 16px; text-align: center;
+      font-size: 13px; color: var(--text-secondary);
+    }
+
     /* ─── Team Tab ─── */
     .team-section { margin-bottom: 20px; }
 
@@ -853,6 +899,13 @@
           <div class="dash-value" id="abholung-timer">—</div>
           <div class="dash-label" id="abholung-label">Abholung 13–14 Uhr</div>
         </div>
+      </div>
+      <div class="routing-widget" id="routing-widget" style="display:none">
+        <div class="routing-widget-header">
+          📦 Routing offen
+          <span class="routing-badge" id="routing-count">0</span>
+        </div>
+        <div id="routing-list"></div>
       </div>
     </div>
 
@@ -1313,8 +1366,62 @@ async function rejectTicket(idx, evt) {
       const amzEl = document.getElementById('dash-amazon');
       if (klEl)  klEl.textContent  = data.kaufland  ?? '—';
       if (amzEl) amzEl.textContent = data.amazon    ?? '—';
+      renderRouting(data.wareneingang_pending || []);
     } catch(e) {
       console.warn('dashboard-stats:', e.message);
+    }
+  }
+
+  function renderRouting(items) {
+    const widget = document.getElementById('routing-widget');
+    const list   = document.getElementById('routing-list');
+    const badge  = document.getElementById('routing-count');
+    if (!items.length) { widget.style.display = 'none'; return; }
+    widget.style.display = 'block';
+    badge.textContent = items.length;
+    list.innerHTML = items.map(p => {
+      const meta = [
+        p.bestellnummer ? p.bestellnummer : '',
+        p.soll ? p.soll + ' Stk' : '',
+        p.ek ? 'EK ' + p.ek + '€' : '',
+        p.ean ? 'EAN ' + p.ean : ''
+      ].filter(Boolean).join(' · ');
+      const id = escHtml(p.page_id || '');
+      return `<div class="routing-item" id="ritem-${id}">
+        <div class="routing-item-title">${escHtml(p.title || '?')}</div>
+        ${meta ? `<div class="routing-item-meta">${escHtml(meta)}</div>` : ''}
+        <div class="routing-btns">
+          <button class="routing-btn-fba" onclick="decideRoute('${id}','${escHtml(p.asin||'')}','${escHtml(p.sku||'')}','${escHtml((p.title||'').replace(/'/g,'').slice(0,80))}',${p.soll||0},'${escHtml(p.ean||'')}',${p.ek||0},'FBA',this)">🟦 FBA</button>
+          <button class="routing-btn-fbm" onclick="decideRoute('${id}','${escHtml(p.asin||'')}','${escHtml(p.sku||'')}','${escHtml((p.title||'').replace(/'/g,'').slice(0,80))}',${p.soll||0},'${escHtml(p.ean||'')}',${p.ek||0},'FBM',this)">🟩 FBM</button>
+          <button class="routing-btn-mix" onclick="decideRoute('${id}','${escHtml(p.asin||'')}','${escHtml(p.sku||'')}','${escHtml((p.title||'').replace(/'/g,'').slice(0,80))}',${p.soll||0},'${escHtml(p.ean||'')}',${p.ek||0},'MIXED',this)">🟧 MIX</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function decideRoute(pageId, asin, sku, artikel, soll, ean, ek, route, btn) {
+    const item = document.getElementById('ritem-' + pageId);
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    try {
+      const res = await fetch('https://gena.app.n8n.cloud/webhook/wareneingang-submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page_id: pageId, asin, sku, artikel, route,
+          ist_stueck: 0, soll_stueck: soll, ean: ean || '', ek: ek || 0,
+          skip_routing_append: false })
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'Fehler');
+      showToast(route + ' gesetzt' + (j.fbaTodosCreated ? ' · ' + j.fbaTodosCreated + ' Todos' : ''), 'success');
+      if (item) { item.style.opacity = '.3'; setTimeout(() => item.remove(), 400); }
+      const list = document.getElementById('routing-list');
+      const badge = document.getElementById('routing-count');
+      const remaining = list ? list.querySelectorAll('.routing-item').length - 1 : 0;
+      if (remaining <= 0) document.getElementById('routing-widget').style.display = 'none';
+      else if (badge) badge.textContent = remaining;
+    } catch(e) {
+      showToast('Fehler: ' + e.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = route === 'FBA' ? '🟦 FBA' : route === 'FBM' ? '🟩 FBM' : '🟧 MIX'; }
     }
   }
 
