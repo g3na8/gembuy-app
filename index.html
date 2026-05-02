@@ -685,6 +685,23 @@
 
     .btn-bezahlt:disabled { opacity: 0.5; cursor: default; }
 
+    /* ─── Fulfillment Toggle ─── */
+    .fulfillment-row {
+      display: flex; gap: 8px; margin-bottom: 12px;
+    }
+    .fulfillment-btn {
+      flex: 1; padding: 7px 0; border-radius: 8px;
+      border: 2px solid var(--border);
+      background: var(--card); color: var(--text-secondary);
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      transition: all .18s;
+    }
+    .fulfillment-btn.active {
+      border-color: var(--accent);
+      background: rgba(99,102,241,.15);
+      color: var(--accent);
+    }
+
     /* ─── Money Rain ─── */
     #money-rain {
       position: fixed; inset: 0;
@@ -1027,7 +1044,8 @@
   const WEBHOOK = {
     kaufland: 'https://gena.app.n8n.cloud/webhook/kaufland-send',
     amazon:   'https://gena.app.n8n.cloud/webhook/amazon-send',
-    fetch:    'https://gena.app.n8n.cloud/webhook/pending-tickets'
+    fetch:    'https://gena.app.n8n.cloud/webhook/pending-tickets',
+    dismiss:  'https://gena.app.n8n.cloud/webhook/skip-ticket'
   };
 
   const TEAM_WEBHOOK = {
@@ -1132,9 +1150,14 @@
         <div class="ticket-body">
           <div class="antwort-label">Vorgeschlagene Antwort</div>
           <div class="antwort-text">${escHtml(t.antwort)}</div>
+          ${t.platform === 'amazon' ? `
+          <div class="fulfillment-row">
+            <button class="fulfillment-btn active" id="fbm-btn-${idx}" onclick="setFulfillment(${idx},'FBM',this,event)">📦 FBM</button>
+            <button class="fulfillment-btn" id="fba-btn-${idx}" onclick="setFulfillment(${idx},'FBA',this,event)">🏭 FBA</button>
+          </div>` : ''}
           <div class="ticket-actions">
             <button class="btn btn-send" onclick="sendTicket(${idx}, event)">✅ Senden</button>
-            <button class="btn btn-reject" onclick="rejectTicket(${idx}, event)">❌ Ablehnen</button>
+            <button class="btn btn-reject" onclick="rejectTicket(${idx}, event)">🗑 Löschen</button>
           </div>
         </div>
       `;
@@ -1208,7 +1231,8 @@
         page_id: t.page_id || '',
         amazon_order_id: t.amazon_order_id || '',
         emailFrom: t.emailFrom || '',
-        emailSubject: t.emailSubject || ''
+        emailSubject: t.emailSubject || '',
+        fulfillment: t.fulfillment || 'FBM'
       };
     }
 
@@ -1235,10 +1259,33 @@
   /* ═══════════════════════════════════════════
      REJECT TICKET
   ═══════════════════════════════════════════ */
-  function rejectTicket(idx, evt) {
+  function setFulfillment(idx, value, btn, evt) {
     evt.stopPropagation();
-    showToast('Ticket abgelehnt', 'info');
+    tickets[idx].fulfillment = value;
+    const card = document.getElementById('card-' + idx);
+    card.querySelectorAll('.fulfillment-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  async function rejectTicket(idx, evt) {
+    evt.stopPropagation();
+    const t = tickets[idx];
     removeCard(idx);
+    showToast('Ticket gelöscht', 'info');
+    // Mark as Done in Notion so it doesn't reappear on refresh
+    try {
+      await fetch(WEBHOOK.dismiss, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: t.platform,
+          ticket_id: t.ticket_id || '',
+          uid: t.message_id || ''
+        })
+      });
+    } catch(e) {
+      console.warn('dismiss failed:', e.message);
+    }
   }
 
   function removeCard(idx) {
