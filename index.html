@@ -1093,7 +1093,8 @@
     pay:        'https://gena.app.n8n.cloud/webhook/team-pay'
   };
 
-  const DASH_WEBHOOK = 'https://gena.app.n8n.cloud/webhook/dashboard-stats';
+  const DASH_WEBHOOK      = 'https://gena.app.n8n.cloud/webhook/dashboard-stats';
+  const DASH_DATA_WEBHOOK = 'https://gena.app.n8n.cloud/webhook/dashboard-data';
 
   /* ═══════════════════════════════════════════
      TABS
@@ -1356,19 +1357,25 @@ async function rejectTicket(idx, evt) {
   ═══════════════════════════════════════════ */
   async function loadDashboard() {
     try {
-      const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 7000);
-      const res = await fetch(DASH_WEBHOOK, { signal: ctrl.signal });
-      clearTimeout(timeout);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      const klEl  = document.getElementById('dash-kaufland');
-      const amzEl = document.getElementById('dash-amazon');
-      if (klEl)  klEl.textContent  = data.kaufland  ?? '—';
-      if (amzEl) amzEl.textContent = data.amazon    ?? '—';
-      renderRouting(data.wareneingang_pending || []);
+      const [statsRes, dataRes] = await Promise.allSettled([
+        fetch(DASH_WEBHOOK,      { signal: AbortSignal.timeout(7000) }),
+        fetch(DASH_DATA_WEBHOOK, { signal: AbortSignal.timeout(10000) })
+      ]);
+
+      if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
+        const s = await statsRes.value.json();
+        const klEl  = document.getElementById('dash-kaufland');
+        const amzEl = document.getElementById('dash-amazon');
+        if (klEl)  klEl.textContent = s.kaufland ?? '—';
+        if (amzEl) amzEl.textContent = s.amazon   ?? '—';
+      }
+
+      if (dataRes.status === 'fulfilled' && dataRes.value.ok) {
+        const d = await dataRes.value.json();
+        renderRouting(d.wareneingang_pending || []);
+      }
     } catch(e) {
-      console.warn('dashboard-stats:', e.message);
+      console.warn('dashboard:', e.message);
     }
   }
 
