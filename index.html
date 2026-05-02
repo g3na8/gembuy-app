@@ -685,20 +685,22 @@
 
     .btn-bezahlt:disabled { opacity: 0.5; cursor: default; }
 
-    /* ─── Fulfillment Toggle ─── */
-    .fulfillment-row {
-      display: flex; gap: 8px; margin-bottom: 12px;
+    /* ─── Fulfillment Pill (header) ─── */
+    .fulfillment-pill {
+      display: inline-flex; align-items: center;
+      border-radius: 20px; overflow: hidden;
+      border: 1.5px solid var(--border);
+      font-size: 11px; font-weight: 700;
+      flex-shrink: 0;
     }
-    .fulfillment-btn {
-      flex: 1; padding: 7px 0; border-radius: 8px;
-      border: 2px solid var(--border);
-      background: var(--card); color: var(--text-secondary);
-      font-size: 12px; font-weight: 700; cursor: pointer;
-      transition: all .18s;
+    .fulfillment-pill button {
+      background: none; border: none; cursor: pointer;
+      padding: 3px 9px; color: var(--text-secondary);
+      font-size: 11px; font-weight: 700; line-height: 1.4;
+      transition: all .15s;
     }
-    .fulfillment-btn.active {
-      border-color: var(--accent);
-      background: rgba(99,102,241,.15);
+    .fulfillment-pill button.active {
+      background: rgba(99,102,241,.2);
       color: var(--accent);
     }
 
@@ -1135,6 +1137,11 @@
           <div class="ticket-meta">
             <span class="platform-badge ${pBadge}">${pLabel}</span>
             <span class="category-badge">${escHtml(t.category)}</span>
+            ${t.platform === 'amazon' ? `
+            <div class="fulfillment-pill" onclick="event.stopPropagation()">
+              <button class="active" id="fbm-btn-${idx}" onclick="setFulfillment(${idx},'FBM',this)">FBM</button>
+              <button id="fba-btn-${idx}" onclick="setFulfillment(${idx},'FBA',this)">FBA</button>
+            </div>` : ''}
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="ticket-summary" style="flex:1">${escHtml(t.summary)}</div>
@@ -1150,11 +1157,6 @@
         <div class="ticket-body">
           <div class="antwort-label">Vorgeschlagene Antwort</div>
           <div class="antwort-text">${escHtml(t.antwort)}</div>
-          ${t.platform === 'amazon' ? `
-          <div class="fulfillment-row">
-            <button class="fulfillment-btn active" id="fbm-btn-${idx}" onclick="setFulfillment(${idx},'FBM',this,event)">📦 FBM</button>
-            <button class="fulfillment-btn" id="fba-btn-${idx}" onclick="setFulfillment(${idx},'FBA',this,event)">🏭 FBA</button>
-          </div>` : ''}
           <div class="ticket-actions">
             <button class="btn btn-send" onclick="sendTicket(${idx}, event)">✅ Senden</button>
             <button class="btn btn-reject" onclick="rejectTicket(${idx}, event)">🗑 Löschen</button>
@@ -1222,7 +1224,7 @@
     let url, body;
     if (t.platform === 'kaufland') {
       url = WEBHOOK.kaufland;
-      body = { ticket_id: t.ticket_id, antwort: t.antwort };
+      body = { ticket_id: t.ticket_id, antwort: t.antwort, page_id: t.page_id || '' };
     } else {
       url = WEBHOOK.amazon;
       body = {
@@ -1259,11 +1261,10 @@
   /* ═══════════════════════════════════════════
      REJECT TICKET
   ═══════════════════════════════════════════ */
-  function setFulfillment(idx, value, btn, evt) {
-    evt.stopPropagation();
+  function setFulfillment(idx, value, btn) {
     tickets[idx].fulfillment = value;
-    const card = document.getElementById('card-' + idx);
-    card.querySelectorAll('.fulfillment-btn').forEach(b => b.classList.remove('active'));
+    const pill = btn.closest('.fulfillment-pill');
+    if (pill) pill.querySelectorAll('button').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
   }
 
