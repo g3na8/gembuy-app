@@ -904,7 +904,7 @@
         <div class="team-section">
           <div class="team-section-title" style="display:flex;align-items:center;justify-content:space-between">
             <span>Offene Stunden</span>
-            <button class="btn-bezahlt" id="btn-bezahlt" onclick="payTeam()">💸 Bezahlt</button>
+            <button class="btn-bezahlt" id="btn-bezahlt" onclick="payTeam()" style="font-size:11px;padding:4px 10px">💸 Alle</button>
           </div>
           <div class="hours-pool">
             <div class="hours-pool-total">
@@ -1202,7 +1202,14 @@
       body = { ticket_id: t.ticket_id, antwort: t.antwort };
     } else {
       url = WEBHOOK.amazon;
-      body = { message_id: t.message_id, antwort: t.antwort, thread_id: t.thread_id };
+      body = {
+        uid: t.message_id,
+        antwort: t.antwort,
+        page_id: t.page_id || '',
+        amazon_order_id: t.amazon_order_id || '',
+        emailFrom: t.emailFrom || '',
+        emailSubject: t.emailSubject || ''
+      };
     }
 
     try {
@@ -1414,6 +1421,7 @@
           <div class="hours-person">${escHtml(s.name)}</div>
           <div class="hours-amount">${parseFloat(s.stunden).toFixed(1).replace('.', ',')}h</div>
           <div class="hours-euro">${parseFloat(s.betrag).toFixed(2).replace('.', ',')} €</div>
+          <button class="btn-bezahlt" onclick="payPerson('${escHtml(s.name)}', this)" style="font-size:11px;padding:4px 10px;min-height:26px">💸</button>
         </div>`
       ).join('');
     }
@@ -1495,6 +1503,25 @@
     }
 
     setTimeout(() => container.remove(), 5000);
+  }
+
+  async function payPerson(name, btn) {
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch(TEAM_WEBHOOK.pay, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'pay_person', name })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      moneyRain();
+      showToast(name + ' bezahlt 💸', 'success');
+      teamData = null;
+      setTimeout(loadTeamData, 1200);
+    } catch(e) {
+      showToast('Fehler: ' + e.message, 'error');
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function payTeam() {
