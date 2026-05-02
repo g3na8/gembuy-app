@@ -900,16 +900,28 @@
           <div class="dash-label" id="abholung-label">Abholung 13–14 Uhr</div>
         </div>
       </div>
-      <div class="routing-widget" id="routing-widget" style="display:none">
-        <div class="routing-widget-header">
-          📦 Routing offen
-          <span class="routing-badge" id="routing-count">0</span>
-        </div>
-        <div id="routing-list"></div>
-      </div>
     </div>
 
-    <!-- ── Tab 3: Team ── -->
+    <!-- ── Tab 3: Routing ── -->
+    <div id="tab-routing" class="tab-page">
+      <div class="top-row">
+        <div class="section-header" style="margin-bottom:0">Routing</div>
+        <button class="refresh-btn" onclick="loadRouting()">
+          <span>↻</span> Aktualisieren
+        </button>
+      </div>
+      <div id="routing-loading" style="display:none;flex-direction:column;align-items:center;padding:40px 20px;gap:12px;color:var(--text-secondary)">
+        <div class="spinner"></div><div>Lädt...</div>
+      </div>
+      <div id="routing-empty" style="display:none" class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">Kein Routing offen</div>
+        <div class="empty-sub">Alle Produkte sind zugeordnet</div>
+      </div>
+      <div id="routing-list"></div>
+    </div>
+
+    <!-- ── Tab 4: Team ── -->
     <div id="tab-team" class="tab-page">
       <div class="top-row">
         <div class="section-header" style="margin-bottom:0">Team</div>
@@ -996,6 +1008,11 @@
     <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">
       <span class="tab-icon">📊</span>
       <span class="tab-label">Dashboard</span>
+    </button>
+    <button class="tab-btn" data-tab="routing" onclick="switchTab('routing')">
+      <span class="tab-icon">🚦</span>
+      <span class="tab-label">Routing</span>
+      <span class="tab-badge" id="badge-routing"></span>
     </button>
     <button class="tab-btn" data-tab="team" onclick="switchTab('team')">
       <span class="tab-icon">👥</span>
@@ -1108,6 +1125,7 @@
     document.getElementById('content').scrollTop = 0;
     if (tab === 'team' && !teamData) loadTeamData();
     if (tab === 'dashboard') loadDashboard();
+    if (tab === 'routing') loadRouting();
   }
 
   /* ═══════════════════════════════════════════
@@ -1377,7 +1395,9 @@ async function rejectTicket(idx, evt) {
 
       if (dataRes.status === 'fulfilled' && dataRes.value.ok) {
         const d = await dataRes.value.json();
-        renderRouting(d.wareneingang_pending || []);
+        const wp = d.wareneingang_pending || [];
+        const badge = document.getElementById('badge-routing');
+        if (badge) { badge.textContent = wp.length; badge.classList.toggle('visible', wp.length > 0); }
       }
     } catch(e) {
       clearTimeout(t1); clearTimeout(t2);
@@ -1385,31 +1405,48 @@ async function rejectTicket(idx, evt) {
     }
   }
 
-  function renderRouting(items) {
-    const widget = document.getElementById('routing-widget');
-    const list   = document.getElementById('routing-list');
-    const badge  = document.getElementById('routing-count');
-    if (!items.length) { widget.style.display = 'none'; return; }
-    widget.style.display = 'block';
-    badge.textContent = items.length;
-    list.innerHTML = items.map(p => {
-      const meta = [
-        p.bestellnummer ? p.bestellnummer : '',
-        p.soll ? p.soll + ' Stk' : '',
-        p.ek ? 'EK ' + p.ek + '€' : '',
-        p.ean ? 'EAN ' + p.ean : ''
-      ].filter(Boolean).join(' · ');
-      const id = escHtml(p.page_id || '');
-      return `<div class="routing-item" id="ritem-${id}">
-        <div class="routing-item-title">${escHtml(p.title || '?')}</div>
-        ${meta ? `<div class="routing-item-meta">${escHtml(meta)}</div>` : ''}
-        <div class="routing-btns">
-          <button class="routing-btn-fba" onclick="decideRoute('${id}','${escHtml(p.asin||'')}','${escHtml(p.sku||'')}','${escHtml((p.title||'').replace(/'/g,'').slice(0,80))}',${p.soll||0},'${escHtml(p.ean||'')}',${p.ek||0},'FBA',this)">🟦 FBA</button>
-          <button class="routing-btn-fbm" onclick="decideRoute('${id}','${escHtml(p.asin||'')}','${escHtml(p.sku||'')}','${escHtml((p.title||'').replace(/'/g,'').slice(0,80))}',${p.soll||0},'${escHtml(p.ean||'')}',${p.ek||0},'FBM',this)">🟩 FBM</button>
-          <button class="routing-btn-mix" onclick="decideRoute('${id}','${escHtml(p.asin||'')}','${escHtml(p.sku||'')}','${escHtml((p.title||'').replace(/'/g,'').slice(0,80))}',${p.soll||0},'${escHtml(p.ean||'')}',${p.ek||0},'MIXED',this)">🟧 MIX</button>
-        </div>
-      </div>`;
-    }).join('');
+  async function loadRouting() {
+    const loading = document.getElementById('routing-loading');
+    const empty   = document.getElementById('routing-empty');
+    const list    = document.getElementById('routing-list');
+    loading.style.display = 'flex'; empty.style.display = 'none'; list.innerHTML = '';
+
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 12000);
+      const res = await fetch(DASH_DATA_WEBHOOK, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const items = data.wareneingang_pending || [];
+
+      const badge = document.getElementById('badge-routing');
+      if (badge) { badge.textContent = items.length; badge.classList.toggle('visible', items.length > 0); }
+
+      if (!items.length) { empty.style.display = 'flex'; return; }
+
+      list.innerHTML = items.map(p => {
+        const meta = [
+          p.bestellnummer || '', p.soll ? p.soll + ' Stk' : '',
+          p.ek ? 'EK ' + p.ek + '€' : '', p.ean ? 'EAN ' + p.ean : ''
+        ].filter(Boolean).join(' · ');
+        const id = escHtml(p.page_id || '');
+        const t_ = escHtml((p.title || '').replace(/'/g, '').slice(0, 80));
+        return `<div class="routing-item" id="ritem-${id}">
+          <div class="routing-item-title">${escHtml(p.title || '?')}</div>
+          ${meta ? `<div class="routing-item-meta">${escHtml(meta)}</div>` : ''}
+          <div class="routing-btns">
+            <button class="routing-btn-fba" onclick="decideRoute('${id}','${escHtml(p.asin||'')}','${escHtml(p.sku||'')}','${t_}',${p.soll||0},'${escHtml(p.ean||'')}',${p.ek||0},'FBA',this)">🟦 FBA</button>
+            <button class="routing-btn-fbm" onclick="decideRoute('${id}','${escHtml(p.asin||'')}','${escHtml(p.sku||'')}','${t_}',${p.soll||0},'${escHtml(p.ean||'')}',${p.ek||0},'FBM',this)">🟩 FBM</button>
+            <button class="routing-btn-mix" onclick="decideRoute('${id}','${escHtml(p.asin||'')}','${escHtml(p.sku||'')}','${t_}',${p.soll||0},'${escHtml(p.ean||'')}',${p.ek||0},'MIXED',this)">🟧 MIX</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="empty-state-small">Fehler: ' + escHtml(e.message) + '</div>';
+    } finally {
+      loading.style.display = 'none';
+    }
   }
 
   async function decideRoute(pageId, asin, sku, artikel, soll, ean, ek, route, btn) {
