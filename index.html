@@ -356,6 +356,44 @@
       border: 1px solid rgba(255, 68, 68, 0.3);
     }
 
+    .btn-refund {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    /* ─── Refund Modal ─── */
+    #refund-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #refund-modal-overlay.open { display: flex; }
+    #refund-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      width: min(360px, calc(100vw - 32px));
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    #refund-modal h3 { margin: 0 0 16px; font-size: 17px; }
+    #refund-modal .refund-info { font-size: 13px; color: var(--text-secondary); margin-bottom:16px; line-height:1.5; }
+    #refund-modal select, #refund-modal textarea {
+      width: 100%; box-sizing: border-box;
+      background: #1e1e1e; color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px; font-size: 14px; margin-bottom: 12px;
+    }
+    #refund-modal label { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
+    #refund-modal .modal-btns { display: flex; gap: 10px; }
+    #refund-modal .modal-btns button { flex: 1; }
+
     .btn:disabled {
       opacity: 0.5;
       cursor: default;
@@ -999,6 +1037,31 @@
   </div><!-- /content -->
 
   <!-- Bottom Tab Bar -->
+  <!-- Refund Modal -->
+  <div id="refund-modal-overlay" onclick="if(event.target===this)closeRefundModal()">
+    <div id="refund-modal">
+      <h3>💸 Erstattung</h3>
+      <div class="refund-info" id="refund-modal-info">Lade...</div>
+      <label>Grund</label>
+      <select id="refund-reason">
+        <option value="no_reason">Kulanzerstattung</option>
+        <option value="too_late">Nicht angekommen / zu spät</option>
+        <option value="defect">Defekt</option>
+        <option value="delivered_damaged">Beschädigt geliefert</option>
+        <option value="wrong_article">Falsche Ware</option>
+        <option value="missing_parts">Teile fehlen</option>
+        <option value="misleading_description">Falsche Beschreibung</option>
+        <option value="bad_quality">Schlechte Qualität</option>
+      </select>
+      <label>Notiz (intern)</label>
+      <textarea id="refund-note" rows="2" placeholder="z.B. Paket verloren gegangen"></textarea>
+      <div class="modal-btns">
+        <button class="btn btn-reject" onclick="closeRefundModal()">Abbrechen</button>
+        <button class="btn btn-refund" id="refund-confirm-btn" onclick="confirmRefund()">💸 Jetzt erstatten</button>
+      </div>
+    </div>
+  </div>
+
   <div id="tab-bar">
     <button class="tab-btn active" data-tab="tickets" onclick="switchTab('tickets')">
       <span class="tab-icon">🎫</span>
@@ -1099,7 +1162,8 @@
     kaufland: 'https://gena.app.n8n.cloud/webhook/kaufland-send',
     amazon:   'https://gena.app.n8n.cloud/webhook/amazon-send',
     fetch:    'https://gena.app.n8n.cloud/webhook/pending-tickets',
-    dismiss:  'https://gena.app.n8n.cloud/webhook/skip-ticket'
+    dismiss:  'https://gena.app.n8n.cloud/webhook/skip-ticket',
+    refund:   'https://gena.app.n8n.cloud/webhook/kaufland-return'
   };
 
   const TEAM_WEBHOOK = {
@@ -1220,7 +1284,11 @@
           ${antwortSection}
           <div class="ticket-actions">
             <button class="btn btn-send" onclick="sendTicket(${idx}, event)">✅ Senden</button>
-            <button class="btn btn-reject" onclick="rejectTicket(${idx}, event)">🗑 Löschen</button>
+            ${t.platform === 'kaufland'
+              ? `<button class="btn btn-refund" onclick="openRefundModal(${idx}, event)">💸 Erstatten</button>
+                 <button class="btn btn-reject" onclick="rejectTicket(${idx}, event)">🔒 Schließen</button>`
+              : `<button class="btn btn-reject" onclick="rejectTicket(${idx}, event)">✅ Gelöst</button>`
+            }
           </div>
         </div>
       `;
@@ -1339,6 +1407,65 @@ async function rejectTicket(idx, evt) {
       });
     } catch(e) {
       console.warn('dismiss failed:', e.message);
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     REFUND MODAL
+  ═══════════════════════════════════════════ */
+  let _refundIdx = null;
+
+  function openRefundModal(idx, evt) {
+    evt.stopPropagation();
+    _refundIdx = idx;
+    const t = tickets[idx];
+    const info = [
+      t.kundenname ? `<strong>${escHtml(t.kundenname)}</strong>` : null,
+      t.bestellnummer ? `Bestellung <code>${escHtml(t.bestellnummer)}</code>` : null,
+      t.artikel ? escHtml(t.artikel.substring(0, 60)) : null
+    ].filter(Boolean).join('<br>');
+    document.getElementById('refund-modal-info').innerHTML = info || `Ticket ${escHtml(t.ticket_id)}`;
+    document.getElementById('refund-note').value = '';
+    document.getElementById('refund-reason').value = 'no_reason';
+    document.getElementById('refund-confirm-btn').disabled = false;
+    document.getElementById('refund-confirm-btn').textContent = '💸 Jetzt erstatten';
+    document.getElementById('refund-modal-overlay').classList.add('open');
+  }
+
+  function closeRefundModal() {
+    document.getElementById('refund-modal-overlay').classList.remove('open');
+    _refundIdx = null;
+  }
+
+  async function confirmRefund() {
+    if (_refundIdx === null) return;
+    const t = tickets[_refundIdx];
+    const reason = document.getElementById('refund-reason').value;
+    const note = document.getElementById('refund-note').value.trim() || 'Erstattung per App';
+    const btn = document.getElementById('refund-confirm-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Läuft...';
+    try {
+      const res = await fetch(WEBHOOK.refund, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_id: t.ticket_id, page_id: t.page_id || '', reason, note })
+      });
+      const j = await res.json();
+      if (j.ok || j.already_done) {
+        const amt = j.amount_eur ? ` · ${j.amount_eur.toFixed(2)} €` : '';
+        showToast('Erstattung eingeleitet' + amt, 'success');
+        closeRefundModal();
+        removeCard(_refundIdx);
+      } else {
+        showToast('Fehler: ' + (j.error || 'unbekannt'), 'error');
+        btn.disabled = false;
+        btn.textContent = '💸 Jetzt erstatten';
+      }
+    } catch(e) {
+      showToast('Fehler: ' + e.message, 'error');
+      btn.disabled = false;
+      btn.textContent = '💸 Jetzt erstatten';
     }
   }
 
