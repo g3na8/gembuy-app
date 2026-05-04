@@ -1186,6 +1186,18 @@
       card.className = 'ticket-card';
       card.id = 'card-' + idx;
 
+      const orderInfo = [
+        t.kundenname ? escHtml(t.kundenname) : null,
+        t.bestellnummer ? '<span style="font-family:monospace;font-size:11px">' + escHtml(t.bestellnummer) + '</span>' : null,
+        t.artikel ? escHtml(t.artikel.substring(0, 60)) + (t.artikel.length > 60 ? '…' : '') : null
+      ].filter(Boolean).join(' · ');
+
+      const antwortSection = t.parse_error
+        ? `<div class="antwort-label" style="color:var(--warning)">⚠️ Bot-Fehler — manuelle Antwort</div>
+           <textarea class="antwort-text" id="antwort-${idx}" rows="5" placeholder="Antwort eintippen…" style="width:100%;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;resize:vertical" oninput="tickets[${idx}].antwort=this.value"></textarea>`
+        : `<div class="antwort-label">Vorgeschlagene Antwort</div>
+           <div class="antwort-text">${escHtml(t.antwort)}</div>`;
+
       card.innerHTML = `
         <div class="ticket-header" onclick="toggleCard(${idx})">
           <div class="ticket-meta">
@@ -1196,6 +1208,7 @@
             <div class="ticket-summary" style="flex:1">${escHtml(t.summary)}</div>
             <div class="ticket-expand-icon">▼</div>
           </div>
+          ${orderInfo ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:6px">${orderInfo}</div>` : ''}
           <div class="confidence-row" style="margin-top:10px">
             <div class="confidence-bar-track">
               <div class="confidence-bar-fill ${cc}" style="width:0%;background:${col}" data-pct="${pct}"></div>
@@ -1204,8 +1217,7 @@
           </div>
         </div>
         <div class="ticket-body">
-          <div class="antwort-label">Vorgeschlagene Antwort</div>
-          <div class="antwort-text">${escHtml(t.antwort)}</div>
+          ${antwortSection}
           <div class="ticket-actions">
             <button class="btn btn-send" onclick="sendTicket(${idx}, event)">✅ Senden</button>
             <button class="btn btn-reject" onclick="rejectTicket(${idx}, event)">🗑 Löschen</button>
