@@ -889,9 +889,12 @@
     <div id="tab-tickets" class="tab-page active">
       <div class="top-row">
         <div class="section-header" style="margin-bottom:0">Offene Tickets</div>
-        <button class="refresh-btn" onclick="loadTickets()">
-          <span>↻</span> Aktualisieren
-        </button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+          <button class="refresh-btn" onclick="loadTickets()">
+            <span>↻</span> Aktualisieren
+          </button>
+          <span id="tickets-last-refresh" style="font-size:10px;color:#666;display:none"></span>
+        </div>
       </div>
 
       <div id="tickets-loading" style="display:none">
@@ -974,7 +977,7 @@
       </div>
 
       <!-- Stunden-Reminder Banner -->
-      <div id="stunden-reminder" style="display:none;background:rgba(255,187,51,0.1);border:1px solid rgba(255,187,51,0.3);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:none;align-items:center;gap:10px">
+      <div id="stunden-reminder" style="display:none;background:rgba(255,187,51,0.1);border:1px solid rgba(255,187,51,0.3);border-radius:10px;padding:12px 16px;margin-bottom:14px;align-items:center;gap:10px">
         <span style="font-size:20px">⏰</span>
         <span style="font-size:13px;flex:1;color:#ffbb33">Stunden noch nicht eingetragen!</span>
         <button onclick="openHoursModal();dismissReminder()" style="background:rgba(255,187,51,0.2);border:1px solid rgba(255,187,51,0.4);color:#ffbb33;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">Jetzt</button>
@@ -1240,6 +1243,7 @@
     updateDashTickets(tickets.length);
 
     tickets.forEach((t, idx) => {
+      const cid = t._cid;
       const pct = Math.round(t.confidence * 100);
       const cc = confClass(t.confidence);
       const col = confColor(t.confidence);
@@ -1248,7 +1252,7 @@
 
       const card = document.createElement('div');
       card.className = 'ticket-card';
-      card.id = 'card-' + idx;
+      card.id = 'card-' + cid;
 
       const orderInfo = [
         t.kundenname ? escHtml(t.kundenname) : null,
@@ -1258,12 +1262,12 @@
 
       const antwortSection = t.parse_error
         ? `<div class="antwort-label" style="color:var(--warning)">⚠️ Bot-Fehler — manuelle Antwort</div>
-           <textarea class="antwort-text" id="antwort-${idx}" rows="5" placeholder="Antwort eintippen…" style="width:100%;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;resize:vertical" oninput="tickets[${idx}].antwort=this.value"></textarea>`
+           <textarea class="antwort-text" id="antwort-${cid}" rows="5" placeholder="Antwort eintippen…" style="width:100%;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;resize:vertical" oninput="ticketByCid(${cid}).antwort=this.value"></textarea>`
         : `<div class="antwort-label">Vorgeschlagene Antwort</div>
            <div class="antwort-text">${escHtml(t.antwort)}</div>`;
 
       card.innerHTML = `
-        <div class="ticket-header" onclick="toggleCard(${idx})">
+        <div class="ticket-header" onclick="toggleCard(${cid})">
           <div class="ticket-meta">
             <span class="platform-badge ${pBadge}">${pLabel}</span>
             <span class="category-badge">${escHtml(t.category)}</span>
@@ -1283,11 +1287,11 @@
         <div class="ticket-body">
           ${antwortSection}
           <div class="ticket-actions">
-            <button class="btn btn-send" onclick="sendTicket(${idx}, event)">✅ Senden</button>
+            <button class="btn btn-send" onclick="sendTicket(${cid}, event)">✅ Senden</button>
             ${t.platform === 'kaufland'
-              ? `<button class="btn btn-refund" onclick="openRefundModal(${idx}, event)">💸 Erstatten</button>
-                 <button class="btn btn-reject" onclick="rejectTicket(${idx}, event)">🔒 Schließen</button>`
-              : `<button class="btn btn-reject" onclick="rejectTicket(${idx}, event)">✅ Gelöst</button>`
+              ? `<button class="btn btn-refund" onclick="openRefundModal(${cid}, event)">💸 Erstatten</button>
+                 <button class="btn btn-reject" onclick="rejectTicket(${cid}, event)">🔒 Schließen</button>`
+              : `<button class="btn btn-reject" onclick="rejectTicket(${cid}, event)">✅ Gelöst</button>`
             }
           </div>
         </div>
@@ -1305,8 +1309,10 @@
     });
   }
 
-  function toggleCard(idx) {
-    const card = document.getElementById('card-' + idx);
+  function ticketByCid(cid) { return tickets.find(t => t._cid === cid) || {}; }
+
+  function toggleCard(cid) {
+    const card = document.getElementById('card-' + cid);
     card.classList.toggle('expanded');
   }
 
@@ -1339,10 +1345,10 @@
   /* ═══════════════════════════════════════════
      SEND TICKET
   ═══════════════════════════════════════════ */
-  async function sendTicket(idx, evt) {
+  async function sendTicket(cid, evt) {
     evt.stopPropagation();
-    const t = tickets[idx];
-    const card = document.getElementById('card-' + idx);
+    const t = ticketByCid(cid);
+    const card = document.getElementById('card-' + cid);
     const sendBtn = card.querySelectorAll('.btn')[0];
     const rejectBtn = card.querySelectorAll('.btn')[1];
 
@@ -1376,7 +1382,7 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
 
       showToast('Antwort gesendet!', 'success');
-      removeCard(idx);
+      removeCard(cid);
 
     } catch (err) {
       showToast('Fehler beim Senden: ' + err.message, 'error');
@@ -1389,9 +1395,9 @@
   /* ═══════════════════════════════════════════
      REJECT TICKET
   ═══════════════════════════════════════════ */
-async function rejectTicket(idx, evt) {
+async function rejectTicket(cid, evt) {
     evt.stopPropagation();
-    const t = tickets[idx];
+    const t = ticketByCid(cid);
 
     // Warn if customer sent the last message (antwort exists = bot processed a buyer message)
     if (t.antwort || t.parse_error) {
@@ -1402,7 +1408,7 @@ async function rejectTicket(idx, evt) {
       if (!confirmed) return;
     }
 
-    removeCard(idx);
+    removeCard(cid);
     showToast('Ticket geschlossen', 'info');
     // Mark as Done in Notion so it doesn't reappear on refresh
     try {
@@ -1423,12 +1429,12 @@ async function rejectTicket(idx, evt) {
   /* ═══════════════════════════════════════════
      REFUND MODAL
   ═══════════════════════════════════════════ */
-  let _refundIdx = null;
+  let _refundCid = null;
 
-  function openRefundModal(idx, evt) {
+  function openRefundModal(cid, evt) {
     evt.stopPropagation();
-    _refundIdx = idx;
-    const t = tickets[idx];
+    _refundCid = cid;
+    const t = ticketByCid(cid);
     const info = [
       t.kundenname ? `<strong>${escHtml(t.kundenname)}</strong>` : null,
       t.bestellnummer ? `Bestellung <code>${escHtml(t.bestellnummer)}</code>` : null,
@@ -1444,12 +1450,12 @@ async function rejectTicket(idx, evt) {
 
   function closeRefundModal() {
     document.getElementById('refund-modal-overlay').classList.remove('open');
-    _refundIdx = null;
+    _refundCid = null;
   }
 
   async function confirmRefund() {
-    if (_refundIdx === null) return;
-    const t = tickets[_refundIdx];
+    if (_refundCid === null) return;
+    const t = ticketByCid(_refundCid);
     const reason = document.getElementById('refund-reason').value;
     const note = document.getElementById('refund-note').value.trim() || 'Erstattung per App';
     const btn = document.getElementById('refund-confirm-btn');
@@ -1466,7 +1472,7 @@ async function rejectTicket(idx, evt) {
         const amt = j.amount_eur ? ` · ${j.amount_eur.toFixed(2)} €` : '';
         showToast('Erstattung eingeleitet' + amt, 'success');
         closeRefundModal();
-        removeCard(_refundIdx);
+        removeCard(_refundCid);
       } else {
         showToast('Fehler: ' + (j.error || 'unbekannt'), 'error');
         btn.disabled = false;
@@ -1479,13 +1485,13 @@ async function rejectTicket(idx, evt) {
     }
   }
 
-  function removeCard(idx) {
-    const card = document.getElementById('card-' + idx);
+  function removeCard(cid) {
+    const card = document.getElementById('card-' + cid);
     if (!card) return;
 
     card.classList.add('removing');
     setTimeout(() => {
-      tickets.splice(idx, 1);
+      tickets = tickets.filter(t => t._cid !== cid);
       renderTickets();
     }, 320);
   }
@@ -1495,13 +1501,14 @@ async function rejectTicket(idx, evt) {
   ═══════════════════════════════════════════ */
   async function loadTickets() {
     const loading = document.getElementById('tickets-loading');
+    const tsEl = document.getElementById('tickets-last-refresh');
     loading.style.display = 'flex';
     tickets = [];
     renderTickets();
 
     try {
       const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 6000);
+      const timeout = setTimeout(() => ctrl.abort(), 15000);
       const res = await fetch(WEBHOOK.fetch, { method: 'GET', signal: ctrl.signal });
       clearTimeout(timeout);
 
@@ -1509,10 +1516,16 @@ async function rejectTicket(idx, evt) {
 
       const data = await res.json();
       const incoming = Array.isArray(data) ? data : (Array.isArray(data.tickets) ? data.tickets : []);
-      tickets = incoming;
+      let _cid = 0;
+      tickets = incoming.map(t => ({ ...t, _cid: _cid++ }));
       renderTickets();
+
+      const now = new Date();
+      const hhmm = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      if (tsEl) { tsEl.textContent = `aktualisiert ${hhmm}`; tsEl.style.display = 'block'; }
     } catch (err) {
       console.warn('Tickets nicht geladen:', err.message);
+      if (tsEl) { tsEl.textContent = 'Fehler beim Laden'; tsEl.style.display = 'block'; }
       showToast('Tickets konnten nicht geladen werden', 'error');
     } finally {
       loading.style.display = 'none';
