@@ -1392,8 +1392,18 @@
 async function rejectTicket(idx, evt) {
     evt.stopPropagation();
     const t = tickets[idx];
+
+    // Warn if customer sent the last message (antwort exists = bot processed a buyer message)
+    if (t.antwort || t.parse_error) {
+      const label = t.platform === 'kaufland' ? 'Schließen' : 'Als gelöst markieren';
+      const confirmed = window.confirm(
+        `⚠️ Kunde wartet noch auf eine Antwort.\n\nTicket wird nur aus der App entfernt — keine Antwort wird gesendet.\n\n"${label}" trotzdem fortfahren?`
+      );
+      if (!confirmed) return;
+    }
+
     removeCard(idx);
-    showToast('Ticket gelöscht', 'info');
+    showToast('Ticket geschlossen', 'info');
     // Mark as Done in Notion so it doesn't reappear on refresh
     try {
       await fetch(WEBHOOK.dismiss, {
