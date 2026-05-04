@@ -1260,17 +1260,46 @@
         t.artikel ? escHtml(t.artikel.substring(0, 60)) + (t.artikel.length > 60 ? '…' : '') : null
       ].filter(Boolean).join(' · ');
 
+      // Chat-Verlauf für live KL Tickets
+      const msgs = t.messages || [];
+      let chatSection = '';
+      if (msgs.length > 0) {
+        const chronological = [...msgs].reverse();
+        const bubbles = chronological.map(m => {
+          const isBuyer = m.role === 'buyer';
+          const isSeller = m.role === 'seller';
+          const label = isBuyer ? '👤 Käufer' : isSeller ? '🏪 Verkäufer' : '⚙️ System';
+          const bg = isBuyer ? '#1a2744' : isSeller ? '#1a3320' : '#2a2a2a';
+          const ts = m.ts ? m.ts.substring(0,10) : '';
+          return `<div style="background:${bg};border-radius:8px;padding:8px 10px;margin-bottom:6px">
+            <div style="font-size:10px;color:#888;margin-bottom:3px">${label} · ${ts}</div>
+            <div style="font-size:13px;white-space:pre-wrap">${escHtml(m.text)}</div>
+          </div>`;
+        }).join('');
+        chatSection = `
+          <div class="antwort-label" style="margin-top:12px">Chatverlauf (${msgs.length} Nachrichten)</div>
+          <div style="max-height:220px;overflow-y:auto;margin-bottom:10px;padding-right:4px">${bubbles}</div>`;
+      } else if (t.beschreibung) {
+        chatSection = `
+          <div class="antwort-label" style="margin-top:12px">Kundenanfrage</div>
+          <div style="background:#1a1a1a;border-radius:8px;padding:10px;font-size:13px;white-space:pre-wrap;margin-bottom:10px">${escHtml(t.beschreibung)}</div>`;
+      }
+
       const antwortSection = t.parse_error
         ? `<div class="antwort-label" style="color:var(--warning)">⚠️ Bot-Fehler — manuelle Antwort</div>
            <textarea class="antwort-text" id="antwort-${cid}" rows="5" placeholder="Antwort eintippen…" style="width:100%;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;resize:vertical" oninput="ticketByCid(${cid}).antwort=this.value"></textarea>`
-        : `<div class="antwort-label">Vorgeschlagene Antwort</div>
-           <div class="antwort-text">${escHtml(t.antwort)}</div>`;
+        : t.live && !t.antwort
+          ? `<div class="antwort-label" style="color:#888">⏳ KI-Antwort wird beim nächsten Bot-Lauf generiert</div>
+             <textarea class="antwort-text" id="antwort-${cid}" rows="5" placeholder="Oder hier manuell antworten…" style="width:100%;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;resize:vertical" oninput="ticketByCid(${cid}).antwort=this.value"></textarea>`
+          : `<div class="antwort-label">Vorgeschlagene Antwort</div>
+             <div class="antwort-text">${escHtml(t.antwort)}</div>`;
 
       card.innerHTML = `
         <div class="ticket-header" onclick="toggleCard(${cid})">
           <div class="ticket-meta">
             <span class="platform-badge ${pBadge}">${pLabel}</span>
             <span class="category-badge">${escHtml(t.category)}</span>
+            ${t.followup ? '<span style="font-size:10px;background:#5a3000;color:#ffaa44;padding:2px 6px;border-radius:4px">Follow-up</span>' : ''}
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="ticket-summary" style="flex:1">${escHtml(t.summary)}</div>
@@ -1285,12 +1314,13 @@
           </div>
         </div>
         <div class="ticket-body">
+          ${chatSection}
           ${antwortSection}
           <div class="ticket-actions">
             <button class="btn btn-send" onclick="sendTicket(${cid}, event)">✅ Senden</button>
             ${t.platform === 'kaufland'
               ? `<button class="btn btn-refund" onclick="openRefundModal(${cid}, event)">💸 Erstatten</button>
-                 <button class="btn btn-reject" onclick="rejectTicket(${cid}, event)">🔒 Schließen</button>`
+                 <button class="btn btn-reject" onclick="rejectTicket(${cid}, event)" title="Entfernt aus App (KL-Ticket bleibt auf Kaufland offen)">🗑 Entfernen</button>`
               : `<button class="btn btn-reject" onclick="rejectTicket(${cid}, event)">✅ Gelöst</button>`
             }
           </div>
@@ -1399,11 +1429,13 @@ async function rejectTicket(cid, evt) {
     evt.stopPropagation();
     const t = ticketByCid(cid);
 
-    // Warn if customer sent the last message (antwort exists = bot processed a buyer message)
-    if (t.antwort || t.parse_error) {
-      const label = t.platform === 'kaufland' ? 'Schließen' : 'Als gelöst markieren';
+    // Warn if customer sent the last message
+    if (t.antwort || t.parse_error || (t.live && t.messages && t.messages.length > 0)) {
+      const isKL = t.platform === 'kaufland';
       const confirmed = window.confirm(
-        `⚠️ Kunde wartet noch auf eine Antwort.\n\nTicket wird nur aus der App entfernt — keine Antwort wird gesendet.\n\n"${label}" trotzdem fortfahren?`
+        isKL
+          ? `⚠️ Ticket wird nur aus der App entfernt.\n\nHinweis: Kaufland-Tickets können nicht per API geschlossen werden — das Ticket bleibt auf Kaufland offen bis der Käufer oder Kaufland-Support es schließt.\n\nTrotzdem entfernen?`
+          : `⚠️ Kunde wartet noch auf eine Antwort.\n\nTicket wird nur aus der App entfernt — keine Antwort wird gesendet.\n\n"Als gelöst markieren" trotzdem fortfahren?`
       );
       if (!confirmed) return;
     }
