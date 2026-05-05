@@ -1062,6 +1062,51 @@
     </div>
   </div>
 
+  <!-- ── Tab 5: eBay Listing ── -->
+  <div id="tab-listing" class="tab-page">
+    <div class="top-row">
+      <div class="section-header" style="margin-bottom:0">🛒 eBay Listen</div>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;gap:10px">
+        <div style="flex:2">
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">EAN</div>
+          <input id="listing-ean" type="text" inputmode="numeric" placeholder="Barcode scannen oder eintippen"
+            style="width:100%;padding:10px;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:15px">
+        </div>
+        <div style="flex:1">
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Preis €</div>
+          <input id="listing-preis" type="number" step="0.01" min="0" placeholder="29.99"
+            style="width:100%;padding:10px;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:15px">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:2">
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Zustand</div>
+          <select id="listing-zustand"
+            style="width:100%;padding:10px;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:14px">
+            <option>Neu</option><option>Neuwertig</option><option>Gut</option><option>Akzeptabel</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Menge</div>
+          <input id="listing-menge" type="number" min="1" value="1"
+            style="width:100%;padding:10px;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:15px">
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Titel (optional — sonst von Keepa)</div>
+        <input id="listing-titel" placeholder="Leer lassen für automatischen Titel"
+          style="width:100%;padding:10px;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:14px">
+      </div>
+      <button id="listing-btn" onclick="submitEbayListing()"
+        style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer">
+        🛒 Listing erstellen
+      </button>
+      <div id="listing-result" style="display:none;background:#1e1e1e;border-radius:10px;padding:14px;font-size:13px;line-height:1.7;border:1px solid var(--border)"></div>
+    </div>
+  </div>
+
   <div id="tab-bar">
     <button class="tab-btn active" data-tab="tickets" onclick="switchTab('tickets')">
       <span class="tab-icon">🎫</span>
@@ -1080,6 +1125,10 @@
     <button class="tab-btn" data-tab="team" onclick="switchTab('team')">
       <span class="tab-icon">👥</span>
       <span class="tab-label">Team</span>
+    </button>
+    <button class="tab-btn" data-tab="listing" onclick="switchTab('listing')">
+      <span class="tab-icon">🛒</span>
+      <span class="tab-label">eBay</span>
     </button>
   </div>
 
@@ -1159,6 +1208,7 @@
      MOCK / SAMPLE DATA
   ═══════════════════════════════════════════ */
   const WEBHOOK = {
+    ebayListing: 'https://gena.app.n8n.cloud/webhook/ebay-listing-create',
     kaufland: 'https://gena.app.n8n.cloud/webhook/kaufland-send',
     amazon:   'https://gena.app.n8n.cloud/webhook/amazon-send',
     fetch:    'https://gena.app.n8n.cloud/webhook/pending-tickets',
@@ -1189,6 +1239,7 @@
     document.getElementById('content').scrollTop = 0;
     if (tab === 'team' && !teamData) loadTeamData();
     if (tab === 'dashboard') loadDashboard();
+    if (tab === 'listing') document.getElementById('listing-ean').focus();
     if (tab === 'routing') loadRouting();
   }
 
@@ -2007,6 +2058,53 @@ async function rejectTicket(idx, evt) {
         URL.revokeObjectURL(swUrl);
       })
       .catch(err => console.warn('SW registration failed:', err));
+  }
+
+  /* ═══════════════════════════════════════════
+     EBAY LISTING BOT
+  ═══════════════════════════════════════════ */
+  async function submitEbayListing() {
+    const ean = (document.getElementById('listing-ean').value || '').trim();
+    const preis = parseFloat((document.getElementById('listing-preis').value || '0').replace(',', '.'));
+    const zustand = document.getElementById('listing-zustand').value;
+    const menge = parseInt(document.getElementById('listing-menge').value || 1);
+    const titel = (document.getElementById('listing-titel').value || '').trim();
+
+    if (!ean) { showToast('EAN eingeben', 'error'); return; }
+    if (!preis || preis <= 0) { showToast('Preis eingeben', 'error'); return; }
+
+    const btn = document.getElementById('listing-btn');
+    const res = document.getElementById('listing-result');
+    btn.disabled = true;
+    btn.textContent = '⏳ Wird erstellt...';
+    res.style.display = 'none';
+
+    try {
+      const r = await fetch(WEBHOOK.ebayListing, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ean, preis, zustand, menge, ...(titel ? { titel_override: titel } : {}) })
+      });
+      const d = await r.json().catch(() => ({}));
+      if (d.ok || d.billbee_id) {
+        res.style.display = 'block';
+        res.innerHTML = `<span style="color:#10b981">✅ Billbee-Produkt angelegt</span><br>
+          <b>ID:</b> ${d.billbee_id}<br>
+          <a href="https://app.billbee.io/de/#/article/edit/${d.billbee_id}" target="_blank"
+            style="color:var(--primary)">→ In Billbee öffnen & auf eBay listen</a><br>
+          <span style="color:var(--text-secondary);font-size:12px">Telegram-Bestätigung folgt</span>`;
+        document.getElementById('listing-ean').value = '';
+        document.getElementById('listing-preis').value = '';
+        document.getElementById('listing-titel').value = '';
+        document.getElementById('listing-menge').value = '1';
+      } else {
+        showToast('Fehler: ' + (d.error || 'Unbekannt'), 'error');
+      }
+    } catch(e) {
+      showToast('Verbindungsfehler', 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = '🛒 Listing erstellen';
   }
 
   /* ═══════════════════════════════════════════
