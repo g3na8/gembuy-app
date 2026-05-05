@@ -1259,6 +1259,9 @@
       const antwortSection = t.parse_error
         ? `<div class="antwort-label" style="color:var(--warning)">⚠️ Bot-Fehler — manuelle Antwort</div>
            <textarea class="antwort-text" id="antwort-${idx}" rows="5" placeholder="Antwort eintippen…" style="width:100%;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;resize:vertical" oninput="tickets[${idx}].antwort=this.value"></textarea>`
+        : !t.antwort
+        ? `<div class="antwort-label" style="color:var(--text-secondary)">✏️ Manuell antworten (KI-Vorschlag folgt beim nächsten Bot-Lauf)</div>
+           <textarea class="antwort-text" id="antwort-${idx}" rows="5" placeholder="Antwort eintippen…" style="width:100%;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;resize:vertical" oninput="tickets[${idx}].antwort=this.value"></textarea>`
         : `<div class="antwort-label">Vorgeschlagene Antwort</div>
            <div class="antwort-text">${escHtml(t.antwort)}</div>`;
 
@@ -1366,6 +1369,14 @@
       };
     }
 
+    if (!t.antwort || !t.antwort.trim()) {
+      showToast('Bitte Antwort eintippen', 'error');
+      sendBtn.disabled = false;
+      rejectBtn.disabled = false;
+      sendBtn.textContent = '✅ Senden';
+      return;
+    }
+
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -1374,6 +1385,8 @@
       });
 
       if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json().catch(() => ({}));
+      if (data.ok === false) throw new Error(data.error || 'Webhook-Fehler');
 
       showToast('Antwort gesendet!', 'success');
       removeCard(idx);
