@@ -318,6 +318,66 @@
       word-break: break-word;
     }
 
+    /* ─── Chat Verlauf ─── */
+    .chat-verlauf {
+      margin-bottom: 14px;
+    }
+    .chat-verlauf-toggle {
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .chat-verlauf-toggle .arrow {
+      transition: transform 0.2s;
+      display: inline-block;
+    }
+    .chat-verlauf-toggle.open .arrow {
+      transform: rotate(90deg);
+    }
+    .chat-messages {
+      display: none;
+      margin-top: 8px;
+      border-left: 2px solid var(--border);
+      padding-left: 10px;
+    }
+    .chat-messages.visible {
+      display: block;
+    }
+    .chat-msg {
+      margin-bottom: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .chat-msg .msg-header {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      margin-bottom: 3px;
+    }
+    .chat-msg .msg-role {
+      font-weight: 700;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .chat-msg .msg-role.buyer { background: rgba(99,179,237,0.15); color: #63b3ed; }
+    .chat-msg .msg-role.seller { background: rgba(72,187,120,0.15); color: #48bb78; }
+    .chat-msg .msg-role.system { background: rgba(160,174,192,0.12); color: #a0aec0; }
+    .chat-msg .msg-ts { font-size: 10px; color: var(--text-secondary); opacity: 0.6; }
+    .chat-msg .msg-text {
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     .ticket-actions {
       display: flex;
       gap: 10px;
@@ -571,25 +631,26 @@
     .shift-name { font-size: 15px; font-weight: 600; flex: 1; }
     .shift-time { font-size: 13px; color: var(--accent); font-weight: 600; }
 
-    .hours-pool {
+    .person-pool-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 16px;
+      padding: 14px 16px;
     }
 
-    .hours-pool-total {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      margin-bottom: 14px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--border);
+    .btn-add-hours {
+      background: rgba(0,212,255,0.1);
+      border: 1px solid rgba(0,212,255,0.3);
+      color: var(--accent);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 10px;
+      cursor: pointer;
     }
 
-    .pool-hours { font-size: 32px; font-weight: 700; color: var(--accent); }
-    .pool-euro  { font-size: 20px; font-weight: 700; color: var(--success); }
-    .pool-label { font-size: 12px; color: var(--text-secondary); margin-left: auto; }
+    .pool-hours { font-size: 28px; font-weight: 700; color: var(--accent); }
+    .pool-euro  { font-size: 18px; font-weight: 700; color: var(--success); }
 
     .hours-row {
       display: flex;
@@ -1006,19 +1067,32 @@
 
         <!-- Offene Stunden (unvergütet) Pool -->
         <div class="team-section">
-          <div class="team-section-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>Offene Stunden</span>
-            <button class="btn-bezahlt" id="btn-bezahlt" onclick="payTeam()" style="font-size:11px;padding:4px 10px">💸 Alle</button>
-          </div>
-          <div class="hours-pool">
-            <div class="hours-pool-total">
-              <div class="pool-hours" id="pool-hours-total">0h</div>
-              <div class="pool-euro" id="pool-euro-total">0,00 €</div>
-              <div class="pool-label">offen</div>
+          <div class="team-section-title">Offene Stunden</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="person-pool-card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-weight:700;font-size:16px">David</span>
+                <div style="display:flex;gap:6px">
+                  <button class="btn-add-hours" onclick="openHoursModal('David')">+ Stunden</button>
+                  <button class="btn-bezahlt" id="btn-pay-david" onclick="payPerson('David', this)" style="font-size:11px;padding:4px 10px">💸 Auszahlen</button>
+                </div>
+              </div>
+              <div style="display:flex;gap:16px;align-items:baseline">
+                <div class="pool-hours" id="pool-hours-david">0h</div>
+                <div class="pool-euro" id="pool-euro-david">0,00 €</div>
+              </div>
             </div>
-            <div id="team-stunden">
-              <div class="hours-row">
-                <div class="hours-person" style="color:#555">Keine offenen Stunden</div>
+            <div class="person-pool-card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-weight:700;font-size:16px">Kubi</span>
+                <div style="display:flex;gap:6px">
+                  <button class="btn-add-hours" onclick="openHoursModal('Kubi')">+ Stunden</button>
+                  <button class="btn-bezahlt" id="btn-pay-kubi" onclick="payPerson('Kubi', this)" style="font-size:11px;padding:4px 10px">💸 Auszahlen</button>
+                </div>
+              </div>
+              <div style="display:flex;gap:16px;align-items:baseline">
+                <div class="pool-hours" id="pool-hours-kubi">0h</div>
+                <div class="pool-euro" id="pool-euro-kubi">0,00 €</div>
               </div>
             </div>
           </div>
@@ -1062,51 +1136,6 @@
     </div>
   </div>
 
-  <!-- ── Tab 5: eBay Listing ── -->
-  <div id="tab-listing" class="tab-page">
-    <div class="top-row">
-      <div class="section-header" style="margin-bottom:0">🛒 eBay Listen</div>
-    </div>
-    <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
-      <div style="display:flex;gap:10px">
-        <div style="flex:2">
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">EAN</div>
-          <input id="listing-ean" type="text" inputmode="numeric" placeholder="Barcode scannen oder eintippen"
-            style="width:100%;padding:10px;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:15px">
-        </div>
-        <div style="flex:1">
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Preis €</div>
-          <input id="listing-preis" type="number" step="0.01" min="0" placeholder="29.99"
-            style="width:100%;padding:10px;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:15px">
-        </div>
-      </div>
-      <div style="display:flex;gap:10px">
-        <div style="flex:2">
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Zustand</div>
-          <select id="listing-zustand"
-            style="width:100%;padding:10px;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:14px">
-            <option>Neu</option><option>Neuwertig</option><option>Gut</option><option>Akzeptabel</option>
-          </select>
-        </div>
-        <div style="flex:1">
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Menge</div>
-          <input id="listing-menge" type="number" min="1" value="1"
-            style="width:100%;padding:10px;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:15px">
-        </div>
-      </div>
-      <div>
-        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Titel (optional — sonst von Keepa)</div>
-        <input id="listing-titel" placeholder="Leer lassen für automatischen Titel"
-          style="width:100%;padding:10px;background:#1e1e1e;color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:14px">
-      </div>
-      <button id="listing-btn" onclick="submitEbayListing()"
-        style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer">
-        🛒 Listing erstellen
-      </button>
-      <div id="listing-result" style="display:none;background:#1e1e1e;border-radius:10px;padding:14px;font-size:13px;line-height:1.7;border:1px solid var(--border)"></div>
-    </div>
-  </div>
-
   <div id="tab-bar">
     <button class="tab-btn active" data-tab="tickets" onclick="switchTab('tickets')">
       <span class="tab-icon">🎫</span>
@@ -1126,10 +1155,6 @@
       <span class="tab-icon">👥</span>
       <span class="tab-label">Team</span>
     </button>
-    <button class="tab-btn" data-tab="listing" onclick="switchTab('listing')">
-      <span class="tab-icon">🛒</span>
-      <span class="tab-label">eBay</span>
-    </button>
   </div>
 
 </div><!-- /app -->
@@ -1140,10 +1165,13 @@
 <!-- Modal: Stunden eintragen -->
 <div class="modal-overlay" id="modal-hours" onclick="if(event.target===this)closeModal('hours')">
   <div class="modal-sheet">
-    <div class="modal-title">⏱ Stunden eintragen</div>
-    <div class="modal-field">
-      <label>Name</label>
-      <input type="text" id="hours-name" placeholder="z.B. Heinrich" autocomplete="off">
+    <div class="modal-title" id="hours-modal-title">⏱ Stunden eintragen</div>
+    <div class="modal-field" id="hours-name-field">
+      <label>Für wen?</label>
+      <select id="hours-name">
+        <option value="David">David</option>
+        <option value="Kubi">Kubi</option>
+      </select>
     </div>
     <div class="modal-field">
       <label>Stunden</label>
@@ -1316,6 +1344,31 @@
         : `<div class="antwort-label">Vorgeschlagene Antwort</div>
            <div class="antwort-text">${escHtml(t.antwort)}</div>`;
 
+      const msgs = t.messages || [];
+      const chatHtml = msgs.length > 0 ? (() => {
+        const chronological = [...msgs].reverse();
+        const items = chronological.map((m, mi) => {
+          const role = m.role || 'system';
+          const label = role === 'buyer' ? 'Käufer' : role === 'seller' ? 'Verkäufer' : 'System';
+          return `<div class="chat-msg">
+            <div class="msg-header">
+              <span class="msg-role ${role}">${label}</span>
+              <span class="msg-ts">${m.ts || ''}</span>
+            </div>
+            <div class="msg-text">${escHtml(m.text || '')}</div>
+          </div>`;
+        }).join('');
+        const vid = `chat-${idx}`;
+        const tid = `toggle-${idx}`;
+        return `<div class="chat-verlauf">
+          <div class="chat-verlauf-toggle" id="${tid}" onclick="toggleChat('${vid}','${tid}')">
+            <span class="arrow">▶</span>
+            💬 Gesprächsverlauf (${msgs.length} Nachrichten)
+          </div>
+          <div class="chat-messages" id="${vid}">${items}</div>
+        </div>`;
+      })() : '';
+
       card.innerHTML = `
         <div class="ticket-header" onclick="toggleCard(${idx})">
           <div class="ticket-meta">
@@ -1335,6 +1388,7 @@
           </div>
         </div>
         <div class="ticket-body">
+          ${chatHtml}
           ${antwortSection}
           <div class="ticket-actions">
             <button class="btn btn-send" onclick="sendTicket(${idx}, event)">✅ Senden</button>
@@ -1362,6 +1416,15 @@
   function toggleCard(idx) {
     const card = document.getElementById('card-' + idx);
     card.classList.toggle('expanded');
+  }
+
+  function toggleChat(msgId, toggleId) {
+    event.stopPropagation();
+    const msgs = document.getElementById(msgId);
+    const toggle = document.getElementById(toggleId);
+    if (!msgs || !toggle) return;
+    msgs.classList.toggle('visible');
+    toggle.classList.toggle('open');
   }
 
   function escHtml(str) {
@@ -1788,30 +1851,18 @@ async function rejectTicket(idx, evt) {
     renderSchicht('team-schicht-heute', d.schicht_heute || []);
     renderSchicht('team-schicht-morgen', d.schicht_morgen || []);
 
-    // Stunden pool (alle unbezahlten)
-    const gesamt = d.stunden_gesamt || {};
-    const totalH = parseFloat(gesamt.stunden) || 0;
-    const totalE = parseFloat(gesamt.betrag) || 0;
-
-    document.getElementById('pool-hours-total').textContent = totalH.toFixed(1).replace('.', ',') + 'h';
-    document.getElementById('pool-euro-total').textContent  = totalE.toFixed(2).replace('.', ',') + ' €';
-
-    const stundenEl = document.getElementById('team-stunden');
+    // Stunden pool (per Person)
     const offen = d.stunden_offen || [];
-    if (offen.length === 0) {
-      stundenEl.innerHTML = '<div class="hours-row"><div class="hours-person" style="color:#555">Keine offenen Stunden</div></div>';
-      document.getElementById('btn-bezahlt').disabled = true;
-    } else {
-      document.getElementById('btn-bezahlt').disabled = false;
-      stundenEl.innerHTML = offen.map(s =>
-        `<div class="hours-row">
-          <div class="hours-person">${escHtml(s.name)}</div>
-          <div class="hours-amount">${parseFloat(s.stunden).toFixed(1).replace('.', ',')}h</div>
-          <div class="hours-euro">${parseFloat(s.betrag).toFixed(2).replace('.', ',')} €</div>
-          <button class="btn-bezahlt" onclick="payPerson('${escHtml(s.name)}', this)" style="font-size:11px;padding:4px 10px;min-height:26px">💸</button>
-        </div>`
-      ).join('');
-    }
+    ['David', 'Kubi'].forEach(name => {
+      const person = offen.find(s => s.name.toLowerCase() === name.toLowerCase());
+      const h = person ? parseFloat(person.stunden) || 0 : 0;
+      const e = person ? parseFloat(person.betrag)  || 0 : 0;
+      const key = name.toLowerCase();
+      document.getElementById('pool-hours-' + key).textContent = h.toFixed(1).replace('.', ',') + 'h';
+      document.getElementById('pool-euro-'  + key).textContent = e.toFixed(2).replace('.', ',') + ' €';
+      const payBtn = document.getElementById('btn-pay-' + key);
+      if (payBtn) payBtn.disabled = (h === 0);
+    });
 
     // Stunden-Reminder: zeigen wenn jemand heute Schicht hat aber keine Stunden eingetragen
     const heuteNamen = new Set((d.schicht_heute||[]).map(s => s.name.toLowerCase()));
@@ -1936,9 +1987,19 @@ async function rejectTicket(idx, evt) {
   }
 
   /* ─── Modals ─── */
-  function openHoursModal() {
+  function openHoursModal(name) {
+    const select = document.getElementById('hours-name');
+    const nameField = document.getElementById('hours-name-field');
+    if (name) {
+      select.value = name;
+      nameField.style.display = 'none';
+      document.getElementById('hours-modal-title').textContent = '⏱ Stunden – ' + name;
+    } else {
+      nameField.style.display = '';
+      document.getElementById('hours-modal-title').textContent = '⏱ Stunden eintragen';
+    }
     document.getElementById('modal-hours').classList.add('open');
-    setTimeout(() => document.getElementById('hours-name').focus(), 100);
+    setTimeout(() => document.getElementById('hours-amount').focus(), 100);
   }
 
   function openTodoModal() {
@@ -1955,7 +2016,6 @@ async function rejectTicket(idx, evt) {
     const stunden = parseFloat(document.getElementById('hours-amount').value);
     const notiz   = document.getElementById('hours-notiz').value.trim();
 
-    if (!name)               { showToast('Name eingeben', 'error'); return; }
     if (!stunden || stunden <= 0) { showToast('Stunden eingeben', 'error'); return; }
 
     const btn = document.getElementById('btn-hours-confirm');
@@ -1970,7 +2030,6 @@ async function rejectTicket(idx, evt) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
 
       closeModal('hours');
-      document.getElementById('hours-name').value = '';
       document.getElementById('hours-amount').value = '';
       document.getElementById('hours-notiz').value = '';
       showToast(stunden + 'h für ' + name + ' eingetragen ✓', 'success');
