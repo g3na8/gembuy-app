@@ -1652,8 +1652,8 @@ async function rejectTicket(idx, evt) {
   async function loadDashboard() {
     const ctrl1 = new AbortController();
     const ctrl2 = new AbortController();
-    const t1 = setTimeout(() => ctrl1.abort(), 7000);
-    const t2 = setTimeout(() => ctrl2.abort(), 12000);
+    const t1 = setTimeout(() => ctrl1.abort(), 15000);
+    const t2 = setTimeout(() => ctrl2.abort(), 30000);
     try {
       const [statsRes, dataRes] = await Promise.allSettled([
         fetch(DASH_WEBHOOK,      { signal: ctrl1.signal }),
@@ -1689,7 +1689,7 @@ async function rejectTicket(idx, evt) {
 
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 12000);
+      const t = setTimeout(() => ctrl.abort(), 30000);
       const res = await fetch(DASH_DATA_WEBHOOK, { signal: ctrl.signal });
       clearTimeout(t);
       if (!res.ok) throw new Error('HTTP ' + res.status);
