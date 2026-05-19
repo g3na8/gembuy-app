@@ -1088,6 +1088,18 @@
         <div class="quick-action-row">
           <button class="btn-quick" onclick="openHoursModal()">⏱ Stunden</button>
           <button class="btn-quick" onclick="openTodoModal()">+ Todo</button>
+          <button class="btn-quick" onclick="openSchichtModal()">📅 Schicht</button>
+        </div>
+
+        <!-- Schicht Quick-Edit Section (7-Tage) -->
+        <div class="team-section">
+          <div class="team-section-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>📅 Schichtplan (7 Tage)</span>
+            <a href="https://www.notion.so/34b36c8a6bf281ebbfeff643f6f200f0" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none">→ Notion</a>
+          </div>
+          <div id="schicht-7d">
+            <div class="empty-state-small">Wird geladen...</div>
+          </div>
         </div>
 
         <!-- Heute im Dienst -->
@@ -1265,6 +1277,50 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal('todo')">Abbrechen</button>
       <button class="btn-confirm" id="btn-todo-confirm" onclick="submitTodo()">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schicht Quick-Edit Modal -->
+<div class="modal-overlay" id="modal-schicht" onclick="if(event.target===this)closeModal('schicht')">
+  <div class="modal-sheet">
+    <div class="modal-title">📅 Schicht eintragen</div>
+    <div class="modal-field">
+      <label>Person</label>
+      <select id="schicht-person">
+        <option value="Kubi">Kubi</option>
+        <option value="David">David</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Datum</label>
+      <input type="date" id="schicht-datum">
+    </div>
+    <div class="modal-field">
+      <label>Status</label>
+      <select id="schicht-status">
+        <option value="Da">Da</option>
+        <option value="Halbtags">Halbtags</option>
+        <option value="Frei">Frei</option>
+        <option value="Krank">Krank</option>
+        <option value="Urlaub">Urlaub</option>
+      </select>
+    </div>
+    <div class="modal-field" id="schicht-schicht-wrap">
+      <label>Schicht</label>
+      <select id="schicht-schicht">
+        <option value="Ganztag">Ganztag (8 h)</option>
+        <option value="Früh (8-14)">Früh (8-14)</option>
+        <option value="Spät (14-20)">Spät (14-20)</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Kommentar (optional)</label>
+      <input type="text" id="schicht-kommentar" placeholder="z.B. Arzttermin">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('schicht')">Abbrechen</button>
+      <button class="btn-confirm" id="btn-schicht-confirm" onclick="submitSchicht()">Speichern</button>
     </div>
   </div>
 </div>
@@ -2111,6 +2167,9 @@ async function rejectTicket(idx, evt) {
     renderSchicht('team-schicht-heute', d.schicht_heute || []);
     renderSchicht('team-schicht-morgen', d.schicht_morgen || []);
 
+    // 7-Tage-Schichtübersicht mit Quick-Edit
+    render7DaySchicht(d);
+
     // Stunden pool (per Person)
     const offen = d.stunden_offen || [];
     ['David', 'Kubi'].forEach(name => {
@@ -2265,6 +2324,84 @@ async function rejectTicket(idx, evt) {
   function openTodoModal() {
     document.getElementById('modal-todo').classList.add('open');
     setTimeout(() => document.getElementById('todo-titel').focus(), 100);
+  }
+
+  function openSchichtModal(person, datum, status, schicht) {
+    if (person) document.getElementById('schicht-person').value = person;
+    document.getElementById('schicht-datum').value = datum || new Date().toISOString().slice(0,10);
+    document.getElementById('schicht-status').value = status || 'Da';
+    document.getElementById('schicht-schicht').value = schicht || 'Ganztag';
+    document.getElementById('schicht-kommentar').value = '';
+    toggleSchichtField();
+    document.getElementById('modal-schicht').classList.add('open');
+  }
+  function toggleSchichtField() {
+    const s = document.getElementById('schicht-status').value;
+    const wrap = document.getElementById('schicht-schicht-wrap');
+    if (wrap) wrap.style.display = (s === 'Da' || s === 'Halbtags') ? '' : 'none';
+  }
+
+  async function submitSchicht() {
+    const person   = document.getElementById('schicht-person').value;
+    const datum    = document.getElementById('schicht-datum').value;
+    const status   = document.getElementById('schicht-status').value;
+    const schicht  = (status === 'Da' || status === 'Halbtags') ? document.getElementById('schicht-schicht').value : '';
+    const kommentar= document.getElementById('schicht-kommentar').value.trim();
+    if (!person || !datum) { showToast('Person + Datum nötig', 'error'); return; }
+    const btn = document.getElementById('btn-schicht-confirm');
+    btn.disabled = true; btn.textContent = '⏳ ...';
+    try {
+      const res = await fetch('https://gena.app.n8n.cloud/webhook/schicht-set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ person, datum, status, schicht, kommentar })
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'Fehler');
+      closeModal('schicht');
+      showToast(`${person} am ${datum} ${status} ✓`, 'success');
+      teamData = null;
+      setTimeout(loadTeamData, 800);
+    } catch(e) {
+      showToast('Fehler: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Speichern';
+    }
+  }
+
+  function render7DaySchicht(d) {
+    const el = document.getElementById('schicht-7d');
+    if (!el) return;
+    const plan = d.schichtplan_7d || d.schichtplan_28d || [];
+    const today = new Date();
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const dt = new Date(today.getTime() + i*86400000);
+      const iso = dt.toISOString().slice(0,10);
+      const dow = ['So','Mo','Di','Mi','Do','Fr','Sa'][dt.getDay()];
+      const ddmm = String(dt.getDate()).padStart(2,'0')+'.'+String(dt.getMonth()+1).padStart(2,'0');
+      const kubi = plan.find(p => p.person==='Kubi' && p.datum===iso);
+      const david = plan.find(p => p.person==='David' && p.datum===iso);
+      days.push({ iso, label: `${dow} ${ddmm}`, kubi, david, isToday: i===0 });
+    }
+    el.innerHTML = days.map(d => `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;${d.isToday?'border-color:var(--accent)':''}">
+        <div style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;font-weight:600">${escHtml(d.label)}${d.isToday?' · HEUTE':''}</div>
+        <div style="display:flex;gap:8px">
+          ${schichtPill(d.kubi, 'Kubi', d.iso)}
+          ${schichtPill(d.david, 'David', d.iso)}
+        </div>
+      </div>
+    `).join('');
+  }
+  function schichtPill(entry, person, iso) {
+    const status = entry?.status || '—';
+    const schicht = entry?.schicht || '';
+    const color = status === 'Da' ? '#00c851' : status === 'Halbtags' ? '#ffbb33' : status === 'Frei' ? '#666' : status === 'Krank' || status === 'Urlaub' ? '#ff4444' : '#444';
+    return `<button onclick="openSchichtModal('${person}','${iso}','${status==='—'?'Da':status}','${schicht||'Ganztag'}')" style="flex:1;background:rgba(74,108,247,0.06);border:1px solid ${color};color:${color};border-radius:8px;padding:6px 8px;cursor:pointer;text-align:left;font-family:inherit">
+      <div style="font-weight:700;font-size:12px;color:var(--text-primary)">${escHtml(person)}</div>
+      <div style="font-size:11px;margin-top:2px;color:${color}">${escHtml(status)}${schicht ? ' · ' + escHtml(schicht.replace(/\s*\(.*?\)/,'')) : ''}</div>
+    </button>`;
   }
 
   function closeModal(type) {
