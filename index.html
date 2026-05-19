@@ -543,6 +543,30 @@
       font-weight: 500;
     }
 
+    /* ─── Morning Briefing (App) ─── */
+    .briefing {
+      background: linear-gradient(135deg, rgba(74,108,247,.12), rgba(74,108,247,.04));
+      border: 1px solid rgba(74,108,247,.25);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .briefing h3 { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 4px 0; font-weight: 600; display:flex; align-items:center; gap:6px; }
+    .briefing .briefing-date { font-size: 11px; color: var(--text-secondary); margin-left: auto; }
+    .briefing-money { font-size: 28px; font-weight: 800; color: var(--success); line-height: 1.1; margin-top: 6px; }
+    .briefing-money .sub { font-size: 11px; color: var(--text-secondary); font-weight: 500; display: block; margin-top: 2px; }
+    .briefing-mom { font-size: 13px; margin-top: 8px; font-weight: 600; }
+    .briefing-mom.up { color: var(--success); }
+    .briefing-mom.down { color: var(--danger); }
+    .briefing-status { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 6px; }
+    .briefing-status .row { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+    .briefing-top { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); }
+    .briefing-top .top-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+    .briefing-top a { display:block; font-size:13px; color:var(--text-primary); text-decoration:none; padding:5px 0; line-height:1.4; border-bottom:1px solid rgba(255,255,255,.05); }
+    .briefing-top a:last-child { border-bottom:0; }
+    .briefing-spruch { font-size: 12px; font-style: italic; color: var(--text-secondary); line-height: 1.4; padding: 10px 12px; background: rgba(255,255,255,.03); border-left: 3px solid var(--accent); border-radius: 6px; margin-top: 12px; }
+    .briefing-spruch .author { font-size: 10px; font-style: normal; opacity: .7; display:block; margin-top: 3px; }
+
     .dash-note {
       text-align: center;
       color: #555;
@@ -976,6 +1000,10 @@
         <button class="refresh-btn" onclick="loadDashboard()">
           <span>↻</span> Aktualisieren
         </button>
+      </div>
+      <div class="briefing" id="briefing-card" style="display:none">
+        <h3>🌅 Morgen-Briefing <span class="briefing-date" id="briefing-date"></span></h3>
+        <div id="briefing-content"></div>
       </div>
       <div class="dash-grid">
         <div class="dash-card">
@@ -1649,6 +1677,141 @@ async function rejectTicket(idx, evt) {
   /* ═══════════════════════════════════════════
      DASHBOARD
   ═══════════════════════════════════════════ */
+  // Tagesspruch (Day-of-Year deterministisch)
+  const DAILY_QUOTES = [
+    ["Tu jeden Tag eine Sache, die dich näher an dein Ziel bringt.","Anonym"],
+    ["Geld arbeitet nicht für den, der nur darüber redet.","Bodo Schäfer"],
+    ["Erfolg ist die Summe richtiger Entscheidungen, jeden Tag wiederholt.","Jeff Olson"],
+    ["Wer kämpft, kann verlieren. Wer nicht kämpft, hat schon verloren.","Bertolt Brecht"],
+    ["Action beats fear.","Tony Robbins"],
+    ["Discipline equals freedom.","Jocko Willink"],
+    ["Du wirst nicht gewinnen, indem du auf den perfekten Moment wartest — sondern indem du jetzt anfängst.","Anonym"],
+    ["Wenn du es nicht messen kannst, kannst du es nicht verbessern.","Peter Drucker"],
+    ["Ein Reseller verdient nicht im Verkauf — er verdient im Einkauf.","Reseller-Mantra"],
+    ["Cashflow ist König. Profit ist Meinung. Cash ist Fakt.","Robert Kiyosaki"],
+    ["Move fast. Break things. Fix them. Repeat.","Mark Zuckerberg"],
+    ["Du brauchst kein 10x-Talent — du brauchst 10 Jahre Konsistenz.","Anonym"],
+    ["Der beste Zeitpunkt zu pflanzen war vor 20 Jahren. Der zweitbeste ist heute.","Chinesisches Sprichwort"],
+    ["Hör auf zu kopieren — fang an zu skalieren, was bei dir funktioniert.","Anonym"],
+    ["Reichtum kommt durch Systeme, nicht durch Stunden.","Tim Ferriss"],
+    ["Wer immer nur das Naheliegende tut, sieht nie was Großes.","Anonym"],
+    ["Du bist nicht zu spät dran. Du bist genau richtig.","Anonym"],
+    ["Don't be busy — be productive.","Anonym"],
+    ["1% besser jeden Tag = 37x besser nach einem Jahr.","James Clear"],
+    ["Wenn nicht jetzt — wann dann? Wenn nicht du — wer dann?","Hillel"],
+    ["Stop overthinking. Start outdoing.","Anonym"],
+    ["Marge ist Disziplin. Disziplin ist Margenwachstum.","Anonym"],
+    ["Hard work in silence — let success make the noise.","Frank Ocean"],
+    ["Risiko entsteht nur, wenn du nicht weißt, was du tust.","Warren Buffett"],
+    ["Don't compete. Dominate.","Anonym"],
+    ["Wer zu sehr nach Sicherheit sucht, verliert die Gelegenheit.","Anonym"],
+    ["Build it. Ship it. Improve it.","DevOps-Mantra"],
+    ["Routinen schlagen Motivation jeden Tag.","Anonym"],
+    ["Die einzige Person, die du übertrumpfen musst, ist die von gestern.","Anonym"],
+    ["Es gibt keine Konkurrenz für jemanden, der unbedingt liefert.","Anonym"],
+    ["Wenn dein Plan dich nicht erschreckt, ist er zu klein.","Anonym"],
+    ["Sales solve everything.","Mark Cuban"],
+    ["Konzentriere dich auf das, was du kontrollieren kannst. Alles andere ist Rauschen.","Anonym"],
+    ["Wer keine Risiken eingeht, riskiert noch mehr.","Erica Jong"],
+    ["You don't get what you wish for — you get what you work for.","Anonym"],
+    ["Schnell skalieren > perfekt sein.","Anonym"],
+    ["Wer nicht testet, glaubt nur. Wer testet, weiß.","Anonym"],
+    ["Frag nicht 'Kann ich mir das leisten?' — frag 'Wie kann ich mir das leisten?'","Robert Kiyosaki"],
+    ["Today's grind is tomorrow's empire.","Anonym"],
+    ["Wer Probleme löst, verdient. Wer Probleme nur sieht, jammert.","Anonym"],
+    ["Verkauf nicht Produkte — verkauf Lösungen.","Anonym"],
+    ["Wer alles macht, macht nichts richtig. Fokus gewinnt.","Anonym"],
+    ["Erfolg ist 90% dran bleiben, 10% Strategie.","Anonym"],
+    ["Du wirst niemals zum Millionär, indem du nur 8h arbeitest und 24h denkst.","Anonym"],
+    ["Better done than perfect.","Sheryl Sandberg"],
+    ["Wenn andere zweifeln, baust du. Wenn andere bauen, skaliest du.","Anonym"],
+    ["Kein Kunde wartet auf dich. Geh ihm entgegen.","Anonym"],
+    ["Investiere in Systeme, nicht in Hoffnungen.","Anonym"],
+    ["Konstanz schlägt Genialität.","Anonym"],
+    ["Was dich heute herausfordert, macht dich morgen unaufhaltbar.","Anonym"]
+  ];
+  function getDailyQuote() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const day = Math.floor((now - start) / 86400000);
+    return DAILY_QUOTES[day % DAILY_QUOTES.length];
+  }
+
+  function eurApp(n) {
+    n = Number(n) || 0;
+    return n.toLocaleString('de-DE', { style:'currency', currency:'EUR', maximumFractionDigits: 0 });
+  }
+
+  function renderBriefing(d) {
+    const card = document.getElementById('briefing-card');
+    if (!card) return;
+    card.style.display = 'block';
+    const bb = d.billbee || {};
+    const bbOk = bb.ok;
+    const mv = bb.monat_vergleich || {};
+    const cc = bb.cross_check || {};
+    const h = d.health || {};
+    const tickets = d.kaufland_tickets || [];
+    const fragen = d.kundenfragen_offen || [];
+    const ticketsUrgent = tickets.filter(t => /urgent/i.test(t.prio||'')).length;
+    const fragenHoch = fragen.filter(f => /hoch|urgent|dringend/i.test(f.dringlichkeit||'')).length;
+    const versandTotal = bb.zu_verschicken_count || 0;
+    const byP = bb.zu_verschicken_by_platform || {};
+    const versandText = Object.entries(byP).filter(([_,n]) => n>0).map(([p,n]) => n+'×'+p.slice(0,3)).join(' / ');
+    const healthOk = (h.err_24h||0) === 0;
+    const driftOk = !(bbOk && cc.warning);
+    const momPct = bbOk && mv.growth_pct != null ? mv.growth_pct : null;
+
+    const now = new Date();
+    const weekday = ['So','Mo','Di','Mi','Do','Fr','Sa'][now.getDay()];
+    const dateStr = `${weekday}. ${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.`;
+    const dateEl = document.getElementById('briefing-date');
+    if (dateEl) dateEl.textContent = dateStr;
+
+    const top3 = [];
+    tickets.filter(t => /urgent/i.test(t.prio||'')).slice(0,2).forEach(t => {
+      top3.push({ icon:'🚨', text:`KL ${t.ticket_id}: ${(t.title||'').replace(/^🎫\s*Kaufland Ticket \d+\s*[–-]\s*/,'').slice(0,50)}`, href: t.kaufland_url || t.notion_url || '#' });
+    });
+    fragen.filter(f => /hoch|urgent|dringend/i.test(f.dringlichkeit||'')).slice(0,2).forEach(f => {
+      const subj = (f.betreff || f.info || '').slice(0,55);
+      top3.push({ icon:'⚠️', text:`${subj}`, href: f.uid ? `https://mail.google.com/mail/u/0/?authuser=gemsneak@gmail.com#all/${encodeURIComponent(f.uid)}` : '#' });
+    });
+    if (top3.length < 3 && bb.zu_verschicken) {
+      bb.zu_verschicken.filter(o => Number(o.total) >= 150).sort((a,b) => Number(b.total)-Number(a.total)).slice(0, 3-top3.length).forEach(o => {
+        top3.push({ icon:'📦', text:`${eurApp(o.total)} ${o.seller||''}: ${o.customer || o.order_number}`, href:'https://app.billbee.io/app_v2/order/list?orderStateId=3' });
+      });
+    }
+
+    const [quoteText, quoteAuthor] = getDailyQuote();
+
+    let html = `<div class="briefing-money">${bbOk ? eurApp(bb.umsatz_gestern) : eurApp((d.umsatz?.gestern?.total)||0)}<span class="sub">gestern${bbOk ? ` · ${bb.bestellungen_gestern} Orders · ${bb.versandt_gestern} versandt` : ''}</span></div>`;
+    if (momPct != null) {
+      html += `<div class="briefing-mom ${momPct>=0?'up':'down'}">${momPct>=0?'📈':'📉'} ${momPct>=0?'+':''}${momPct.toFixed(0)}% MoM · Tag ${mv.days_passed}</div>`;
+    }
+    html += `<div class="briefing-status">`;
+    html += `<div class="row">${versandTotal ? `📦 <b>${versandTotal}</b> Pakete heute raus ${versandText?'<span style="opacity:.7;font-size:11px">('+versandText+')</span>':''}` : '<span style="opacity:.7">📦 Nichts zu verschicken 👌</span>'}</div>`;
+    if (tickets.length || fragen.length) {
+      html += `<div class="row" style="color:#ffbb33">⚠️ <b>${tickets.length}</b> Tickets${ticketsUrgent?` (${ticketsUrgent} Urgent)`:''} · <b>${fragen.length}</b> Fragen${fragenHoch?` (${fragenHoch} hoch)`:''}</div>`;
+    } else {
+      html += `<div class="row" style="color:#00c851">✅ Keine offenen Tickets/Fragen</div>`;
+    }
+    if (!driftOk) {
+      html += `<div class="row" style="color:#ff4444">⚠️ Sheet-Drift: ${eurApp(cc.drift_eur)} (${cc.drift_pct.toFixed(0)}%)</div>`;
+    } else {
+      html += `<div class="row" style="color:#00c851">✅ Sheet/Billbee synchron</div>`;
+    }
+    html += `<div class="row" style="color:${healthOk?'#00c851':'#ff4444'}">${healthOk?'✅':'❌'} Workflows: <b>${h.ok_24h||0}%</b> ok · ${h.err_24h||0} Fails</div>`;
+    html += `</div>`;
+    if (top3.length) {
+      html += `<div class="briefing-top"><div class="top-label">🎯 Top für heute</div>`;
+      html += top3.slice(0,5).map(t => `<a href="${t.href}" target="_blank" rel="noopener"><span>${t.icon}</span> ${escHtml(t.text)}</a>`).join('');
+      html += `</div>`;
+    }
+    html += `<div class="briefing-spruch">„${escHtml(quoteText)}"<span class="author">— ${escHtml(quoteAuthor)}</span></div>`;
+
+    document.getElementById('briefing-content').innerHTML = html;
+  }
+
   async function loadDashboard() {
     const ctrl1 = new AbortController();
     const ctrl2 = new AbortController();
@@ -1674,6 +1837,7 @@ async function rejectTicket(idx, evt) {
         const wp = d.wareneingang_pending || [];
         const badge = document.getElementById('badge-routing');
         if (badge) { badge.textContent = wp.length; badge.classList.toggle('visible', wp.length > 0); }
+        renderBriefing(d);
       }
     } catch(e) {
       clearTimeout(t1); clearTimeout(t2);
