@@ -970,8 +970,21 @@
   <!-- Content -->
   <div id="content">
 
+    <!-- ── Tab 0: Briefing ── -->
+    <div id="tab-briefing" class="tab-page active">
+      <div class="top-row">
+        <div class="section-header" style="margin-bottom:0">🌅 Morgen-Briefing</div>
+        <button class="refresh-btn" onclick="loadBriefing()">
+          <span>↻</span> Aktualisieren
+        </button>
+      </div>
+      <div id="briefing-tab-content">
+        <div style="text-align:center;padding:40px 20px;color:var(--text-secondary);font-size:14px">Lade Briefing…</div>
+      </div>
+    </div>
+
     <!-- ── Tab 1: Tickets ── -->
-    <div id="tab-tickets" class="tab-page active">
+    <div id="tab-tickets" class="tab-page">
       <div class="top-row">
         <div class="section-header" style="margin-bottom:0">Offene Tickets</div>
         <button class="refresh-btn" onclick="loadTickets()">
@@ -1165,14 +1178,18 @@
   </div>
 
   <div id="tab-bar">
-    <button class="tab-btn active" data-tab="tickets" onclick="switchTab('tickets')">
+    <button class="tab-btn active" data-tab="briefing" onclick="switchTab('briefing')">
+      <span class="tab-icon">🌅</span>
+      <span class="tab-label">Briefing</span>
+    </button>
+    <button class="tab-btn" data-tab="tickets" onclick="switchTab('tickets')">
       <span class="tab-icon">🎫</span>
       <span class="tab-label">Tickets</span>
       <span class="tab-badge" id="badge-tickets"></span>
     </button>
     <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">
       <span class="tab-icon">📊</span>
-      <span class="tab-label">Dashboard</span>
+      <span class="tab-label">Stats</span>
     </button>
     <button class="tab-btn" data-tab="routing" onclick="switchTab('routing')">
       <span class="tab-icon">🚦</span>
@@ -1297,6 +1314,85 @@
     if (tab === 'dashboard') loadDashboard();
     if (tab === 'listing') document.getElementById('listing-ean').focus();
     if (tab === 'routing') loadRouting();
+    if (tab === 'briefing') loadBriefing();
+  }
+
+  async function loadBriefing() {
+    const wrap = document.getElementById('briefing-tab-content');
+    if (!wrap) return;
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 25000);
+      const res = await fetch(DASH_DATA_WEBHOOK, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const d = await res.json();
+      renderBriefingTab(d, wrap);
+    } catch(e) {
+      wrap.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--danger);font-size:13px">Fehler: ${escHtml(e.message)}<br><button onclick="loadBriefing()" style="margin-top:12px;padding:8px 16px;border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:6px;cursor:pointer">↻ Erneut versuchen</button></div>`;
+    }
+  }
+
+  function renderBriefingTab(d, wrap) {
+    const bb = d.billbee || {};
+    const bbOk = bb.ok;
+    const mv = bb.monat_vergleich || {};
+    const cc = bb.cross_check || {};
+    const h = d.health || {};
+    const tickets = d.kaufland_tickets || [];
+    const fragen = d.kundenfragen_offen || [];
+    const ticketsUrgent = tickets.filter(t => /urgent/i.test(t.prio||'')).length;
+    const fragenHoch = fragen.filter(f => /hoch|urgent|dringend/i.test(f.dringlichkeit||'')).length;
+    const versandTotal = bb.zu_verschicken_count || 0;
+    const byP = bb.zu_verschicken_by_platform || {};
+    const versandText = Object.entries(byP).filter(([_,n]) => n>0).map(([p,n]) => n+'×'+p.slice(0,3)).join(' / ');
+    const healthOk = (h.err_24h||0) === 0;
+    const driftOk = !(bbOk && cc.warning);
+    const momPct = bbOk && mv.growth_pct != null ? mv.growth_pct : null;
+
+    const now = new Date();
+    const weekday = ['So','Mo','Di','Mi','Do','Fr','Sa'][now.getDay()];
+    const dateStr = `${weekday}. ${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()}`;
+
+    const top3 = [];
+    tickets.filter(t => /urgent/i.test(t.prio||'')).slice(0,2).forEach(t => {
+      top3.push({ icon:'🚨', text:`KL ${t.ticket_id}: ${(t.title||'').replace(/^🎫\s*Kaufland Ticket \d+\s*[–-]\s*/,'').slice(0,50)}`, href: t.kaufland_url || t.notion_url || '#' });
+    });
+    fragen.filter(f => /hoch|urgent|dringend/i.test(f.dringlichkeit||'')).slice(0,2).forEach(f => {
+      top3.push({ icon:'⚠️', text:(f.betreff||f.info||'').slice(0,55), href: f.uid ? `https://mail.google.com/mail/u/0/?authuser=gemsneak@gmail.com#all/${encodeURIComponent(f.uid)}` : '#' });
+    });
+    if (top3.length < 3 && bb.zu_verschicken) {
+      bb.zu_verschicken.filter(o => Number(o.total) >= 150).sort((a,b) => Number(b.total)-Number(a.total)).slice(0, 3-top3.length).forEach(o => {
+        top3.push({ icon:'📦', text:`${eurApp(o.total)} ${o.seller||''}: ${o.customer || o.order_number}`, href:'https://app.billbee.io/app_v2/order/list?orderStateId=3' });
+      });
+    }
+    const [quoteText, quoteAuthor] = getDailyQuote();
+
+    let html = `<div class="briefing">
+      <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px">${escHtml(dateStr)}</div>
+      <div class="briefing-money">${bbOk ? eurApp(bb.umsatz_gestern) : eurApp((d.umsatz?.gestern?.total)||0)}<span class="sub">gestern${bbOk ? ` · ${bb.bestellungen_gestern} Orders · ${bb.versandt_gestern} versandt` : ''}</span></div>`;
+    if (momPct != null) {
+      html += `<div class="briefing-mom ${momPct>=0?'up':'down'}">${momPct>=0?'📈':'📉'} ${momPct>=0?'+':''}${momPct.toFixed(0)}% MoM · Tag ${mv.days_passed}</div>`;
+    }
+    html += `<div class="briefing-status">`;
+    html += `<div class="row">${versandTotal ? `📦 <b>${versandTotal}</b> Pakete heute raus ${versandText?'<span style="opacity:.7;font-size:11px">('+versandText+')</span>':''}` : '<span style="opacity:.7">📦 Nichts zu verschicken 👌</span>'}</div>`;
+    if (tickets.length || fragen.length) {
+      html += `<div class="row" style="color:#ffbb33">⚠️ <b>${tickets.length}</b> Tickets${ticketsUrgent?` (${ticketsUrgent} Urgent)`:''} · <b>${fragen.length}</b> Fragen${fragenHoch?` (${fragenHoch} hoch)`:''}</div>`;
+    } else {
+      html += `<div class="row" style="color:#00c851">✅ Keine offenen Tickets/Fragen</div>`;
+    }
+    if (!driftOk) html += `<div class="row" style="color:#ff4444">⚠️ Sheet-Drift: ${eurApp(cc.drift_eur)} (${cc.drift_pct.toFixed(0)}%)</div>`;
+    else html += `<div class="row" style="color:#00c851">✅ Sheet/Billbee synchron</div>`;
+    html += `<div class="row" style="color:${healthOk?'#00c851':'#ff4444'}">${healthOk?'✅':'❌'} Workflows: <b>${h.ok_24h||0}%</b> ok · ${h.err_24h||0} Fails</div>`;
+    html += `</div>`;
+    if (top3.length) {
+      html += `<div class="briefing-top"><div class="top-label">🎯 Top für heute</div>`;
+      html += top3.slice(0,5).map(t => `<a href="${t.href}" target="_blank" rel="noopener"><span>${t.icon}</span> ${escHtml(t.text)}</a>`).join('');
+      html += `</div>`;
+    }
+    html += `<div class="briefing-spruch">„${escHtml(quoteText)}"<span class="author">— ${escHtml(quoteAuthor)}</span></div>`;
+    html += `</div>`;
+    wrap.innerHTML = html;
   }
 
   /* ═══════════════════════════════════════════
@@ -2335,6 +2431,7 @@ async function rejectTicket(idx, evt) {
   ═══════════════════════════════════════════ */
   document.addEventListener('DOMContentLoaded', () => {
     registerSW();
+    loadBriefing();
     loadTickets();
     loadDashboard();
     startAbholungTimer();
